@@ -2,7 +2,7 @@
 set -e
 
 echo "=== 1. Verificando entorno virtual ==="
-if [ ! -d "venv"]; then
+if [ ! -d "venv" ]; then
     echo "No existe el entorno virtual(venv). Creando..."
     python3 -m venv venv
 else
@@ -19,7 +19,7 @@ echo "=== 4. Instalando dependencias de requirement.txt ==="
 pip install -r requirements.txt
 
 echo "=== 5. Verificando archivo de variables de entorno virtual(.env) ==="
-if [! -f ".env"]; then
+if [ ! -f ".env" ]; then
     echo "No existe archivo '.env'. Creando a partir de '.env.example'"
     cp .env.example .env
 else

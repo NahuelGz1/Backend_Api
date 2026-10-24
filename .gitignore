@@ -1,11 +1,14 @@
 # Entornos virtuales
-venv
-backend/venv/
+venv/
+.venv/
+*/venv/
 
 # Variables de entorno
 .env
-backend/.env
+*.env
+*/.env
 
 # Cache de python
-__pycache__/
+*__pycache__/
 *.pyc
+*.pyo

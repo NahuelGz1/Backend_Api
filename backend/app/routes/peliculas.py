@@ -12,11 +12,6 @@ def obtener_detalle_pelicula(pelicula_id: int):
     return {}
 
 
-@peliculas_bp.route("/peliculas/buscar-externa", methods=["GET"])
-def buscar_pelicula_externa():
-    return {}
-
-
 @peliculas_bp.route("/peliculas", methods=["POST"])
 def crear_pelicula_local():
     return {}

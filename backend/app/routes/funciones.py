@@ -31,3 +31,7 @@ def programar_funcion():
 @funciones_bp.route("/funciones/<int:funcion_id>", methods=["DELETE"])
 def dar_baja_funcion(funcion_id: int):
     return {}
+
+@funciones_bp.route("/funciones/<int:funcion_id>", methods=["PATH"])
+def modificar_funcion(funcion_id: int):
+    return {}

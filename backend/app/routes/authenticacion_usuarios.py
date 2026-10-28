@@ -18,10 +18,10 @@ def registrar_usuario():
     password = data.get("password")
 
     if not nombre or not email or not password:
-    return jsonify({
-        "status": "error",
-        "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
-    }), 400
+        return jsonify({
+            "status": "error",
+            "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
+        }), 400
 
     return jsonify({
         "status": "ok",

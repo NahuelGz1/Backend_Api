@@ -1,13 +1,39 @@
-from app import auth_bp
+from flask import Blueprint, request, jsonify
 auth_bp = Blueprint("auth", __name__)
 
 
-@auth_bp.route("/auth/register", methods=["POST"])
+# Endpoint de registro (como el prefijo en app.py será '/api/auth', la ruta final es '/api/auth/register')
+@auth_bp.route("/register", methods=["POST"])
 def registrar_usuario():
-    return {}
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "status": "error",
+            "message": "No se recibieron datos en formato JSON"
+        }), 400
+    
+    nombre = data.get("nombre")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not nombre or not email or not password:
+    return jsonify({
+        "status": "error",
+        "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
+    }), 400
+
+    return jsonify({
+        "status": "ok",
+        "message": "Datos recibidos correctamente para el registro",
+        "data": {
+            "nombre": nombre,
+            "email": email
+        }
+    }), 200
 
 
-@auth_bp.route("/auth/login", methods=["POST"])
+@auth_bp.route("/login", methods=["POST"])
 def iniciar_sesion():
     return {}
 

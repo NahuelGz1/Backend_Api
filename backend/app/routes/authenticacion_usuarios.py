@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify
+from app.utils.security import hashear_password
+
 auth_bp = Blueprint("auth", __name__)
 
 
@@ -22,13 +24,16 @@ def registrar_usuario():
             "status": "error",
             "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
         }), 400
-
+    
+    password_hash = hasehar_password(password)
+    
     return jsonify({
         "status": "ok",
         "message": "Datos recibidos correctamente para el registro",
         "data": {
             "nombre": nombre,
             "email": email
+            "password_hash_ejemplo": password_hash[:20] + "..."
         }
     }), 200
 

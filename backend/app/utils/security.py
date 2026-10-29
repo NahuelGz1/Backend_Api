@@ -1,4 +1,4 @@
-from werkzeug.security import generate_password_hash, check_passowrd_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 def hashear_password(password:str) -> str:
     return generate_password_hash(password)

@@ -25,7 +25,9 @@ app.register_blueprint(compras_bp, url_prefix=f"{BASE_URL}/compras")
 app.register_blueprint(dashboard_bp, url_prefix=f"{BASE_URL}/dashboard")
 # app.register_blueprint(entradas_bp, url_prefix=f"{BASE_URL}/entradas")
 app.register_blueprint(funciones_bp, url_prefix=f"{BASE_URL}/funciones")
-app.register_blueprint(peliculas_bp, url_prefix=f"{BASE_URL}/peliculas")
+
+#registramos películas bajo BASE_URL directamente para mantener /api/cartelera y /api/peliculas
+app.register_blueprint(peliculas_bp, url_prefix=BASE_URL)
 app.register_blueprint(servicios_bp, url_prefix=f"{BASE_URL}/servicios")
 
 
@@ -35,6 +37,7 @@ def ping():
         "status": "ok",
         "message": "Backend Flask running"
     }), 200
+
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))

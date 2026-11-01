@@ -1,7 +1,10 @@
 import os
 from functools import wraps
 from flask import request, g
-import jwt
+try:
+    import jwt
+except ImportError:
+    jwt = None
 from app.utils.response import responder_error
 
 CLAVE_SECRETA = os.getenv("JWT_SECRET_KEY", "clave_secreta_cine_paradiso")

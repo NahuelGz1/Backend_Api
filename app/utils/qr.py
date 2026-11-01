@@ -1,6 +1,9 @@
 import io
 import base64
-import qrcode
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
 
 def generar_codigo_qr(contenido: str) -> str:
     """Genera una imagen QR en formato base64 a partir de un texto o JSON."""

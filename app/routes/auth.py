@@ -33,7 +33,7 @@ def registrar_usuario():
         nombre=nombre,
         email=email,
         password_hash=password_hash,
-        rol="ADMIN"
+        rol="CLIENTE"
     )
 
     if isinstance(resultado, dict) and "error" in resultado:

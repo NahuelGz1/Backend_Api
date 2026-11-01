@@ -1,25 +1,40 @@
 from app.db import ejecutar_consulta
 
-def listar_locales():
-    sql = "SELECT DISTINCT local FROM salas ORDER BY local ASC;"
+
+def listar_locales() -> list[dict]:
+    sql = """
+        SELECT DISTINCT local
+        FROM salas
+        ORDER BY local ASC;
+    """
     return ejecutar_consulta(sql)
 
-def listar_salas(local=None):
-    sql = "SELECT id, nombre, capacidad, local FROM salas"
-    parametros = ()
+
+def listar_salas(local: str = None) -> list[dict]:
+    sql = """
+        SELECT id, nombre, capacidad, local
+        FROM salas
+    """
+    parametros = []
     if local:
         sql += " WHERE local = %s"
-        parametros = (local,)
-    sql += " ORDER BY local ASC, nombre ASC;"
-    return ejecutar_consulta(sql, parametros)
+        parametros.append(local)
 
-def listar_funciones():
+    sql += " ORDER BY local ASC, nombre ASC;"
+    return ejecutar_consulta(sql, tuple(parametros))
+
+
+def listar_funciones() -> list[dict]:
     sql = """
         SELECT 
             f.id AS funcion_id,
             f.fecha_hora_proyeccion,
-            p.id AS pelicula_id, p.titulo AS pelicula_titulo, p.duracion AS pelicula_duracion,
-            s.id AS sala_id, s.nombre AS sala_nombre, s.local AS sala_local
+            p.id AS pelicula_id,
+            p.titulo AS pelicula_titulo,
+            p.duracion AS pelicula_duracion,
+            s.id AS sala_id,
+            s.nombre AS sala_nombre,
+            s.local AS sala_local
         FROM funciones f
         JOIN peliculas p ON p.id = f.id_pelicula
         JOIN salas s ON s.id = f.id_sala
@@ -27,13 +42,18 @@ def listar_funciones():
     """
     return ejecutar_consulta(sql)
 
-def buscar_funcion_por_id(funcion_id: int):
+
+def buscar_funcion_por_id(funcion_id: int) -> dict | None:
     sql = """
         SELECT 
             f.id AS funcion_id,
             f.fecha_hora_proyeccion,
-            p.id AS pelicula_id, p.titulo AS pelicula_titulo, p.duracion AS pelicula_duracion,
-            s.id AS sala_id, s.nombre AS sala_nombre, s.local AS sala_local
+            p.id AS pelicula_id,
+            p.titulo AS pelicula_titulo,
+            p.duracion AS pelicula_duracion,
+            s.id AS sala_id,
+            s.nombre AS sala_nombre,
+            s.local AS sala_local
         FROM funciones f
         JOIN peliculas p ON p.id = f.id_pelicula
         JOIN salas s ON s.id = f.id_sala

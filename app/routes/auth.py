@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.utils.security import hashear_password
-from app.repositories.usuario_repository import crear_usuario
+from app.repositories.auth_repository import crear_usuario
 
 auth_bp = Blueprint("auth", __name__)
 

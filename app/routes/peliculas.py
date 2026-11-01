@@ -1,0 +1,51 @@
+from flask import Blueprint, request
+
+from app.services import peliculas_service
+from app.utils.response import responder_exito, responder_error
+from app.utils.decorators import requiere_autenticacion, requiere_administrador
+
+peliculas_bp = Blueprint("peliculas", __name__)
+
+
+@peliculas_bp.route("/cartelera", methods=["GET"])
+@requiere_autenticacion
+def listar_cartelera():
+    """Películas con funciones vigentes, cada una con sus funciones."""
+    cartelera = peliculas_service.obtener_cartelera()
+    return responder_exito(cartelera)
+
+
+@peliculas_bp.route("/peliculas/<int:pelicula_id>", methods=["GET"])
+@requiere_autenticacion
+def obtener_detalle_pelicula(pelicula_id: int):
+    """Una película con sus funciones vigentes."""
+    pelicula, error = peliculas_service.obtener_pelicula(pelicula_id)
+    if error:
+        return responder_error(error)
+
+    return responder_exito(pelicula)
+
+
+@peliculas_bp.route("/peliculas", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
+def crear_pelicula_local():
+    """Crea una película nueva a partir del JSON que manda el administrador."""
+    datos = request.get_json(silent=True)
+    pelicula, error = peliculas_service.crear_pelicula(datos)
+    if error:
+        return responder_error(error)
+
+    return responder_exito(pelicula, status_code=201)
+
+
+@peliculas_bp.route("/peliculas/buscar-externa", methods=["GET"])
+@requiere_autenticacion
+@requiere_administrador
+def buscar_pelicula_externa():
+    """Busca películas por título en TMDB (?titulo=...)."""
+    resultados, error = peliculas_service.buscar_peliculas_en_tmdb(request.args.get("titulo"))
+    if error:
+        return responder_error(error)
+
+    return responder_exito(resultados)

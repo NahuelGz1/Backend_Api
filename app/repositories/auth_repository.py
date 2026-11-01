@@ -53,7 +53,16 @@ def obtener_historial_entradas_por_usuario(id_usuario: int):
             """
     return ejecutar_consulta(query, (id_usuario,))
 import pymysql
-from db import obtener_conexion
+from db import obtener_conexion, ejecutar_consulta
+
+def buscar_por_email(email: str) -> dict | None:
+    """
+    Busca un usuario por su email.
+    Retorna el diccionario con sus datos (id, nombre, email, password_hash, rol) o None si no existe.
+    """
+    query = "SELECT id, nombre, email, password_hash, rol FROM usuarios WHERE email = %s"
+    resultados = ejecutar_consulta(query, (email,))
+    return resultados[0] if resultados else None
 
 def crear_usuario(nombre: str, email: str, password_hash: str, rol: str = "cliente") -> dict:
     """
@@ -63,6 +72,9 @@ def crear_usuario(nombre: str, email: str, password_hash: str, rol: str = "clien
     conexion = None
     try:
         conexion = obtener_conexion()
+        if not conexion:
+            return {"error": "No se pudo conectar con la base de datos MySQL. Verifica que el servicio esté activo y las credenciales en .env sean correctas."}
+
         with conexion.cursor() as cursor:
             sql = """
                 INSERT INTO usuarios (nombre, email, password_hash, rol)

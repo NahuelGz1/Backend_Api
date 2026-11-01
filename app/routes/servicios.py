@@ -1,106 +1,69 @@
-from flask import Blueprint, jsonify, request
 
-from db import obtener_conexion
+from flask import Blueprint, request
+
+from app.services import servicios_service
+from app.utils.response import responder_exito, responder_error
+from app.utils.decorators import requiere_autenticacion, requiere_administrador
+
 servicios_bp = Blueprint("servicios", __name__)
+
+
+def _responder_error(error):
+    """Arma la respuesta de error con el mensaje, el código y los detalles que manda el service."""
+    return responder_error(
+        error["mensaje"],
+        error["codigo"],
+        error.get("detalles")
+    )
+
 
 @servicios_bp.route("/servicios", methods=["GET"])
 def listar_servicios():
-    conexion = obtener_conexion()
-    cursor = conexion.cursor()
-    cursor.execute("SELECT id, nombre, descripcion, precio FROM servicios")
-    filas = cursor.fetchall()
-    cursor.close()
-    conexion.close()
-
-    servicios = []
-    for fila in filas:
-        servicios.append({
-            "id": fila[0],
-            "nombre": fila[1],
-            "descripcion": fila[2],
-            "precio": float(fila[3])
-        })
-
-
-    return jsonify(servicios), 200
-
+    """Lista todos los servicios. Endpoint público."""
+    servicios = servicios_service.listar_servicios()
+    return responder_exito(servicios)
 
 @servicios_bp.route("/servicios", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
 def crear_servicio():
-    data = request.get_json()
+    """Crea un servicio nuevo a partir del JSON que manda el administrador."""
+    datos = request.get_json(silent=True)
 
-    if not data or "nombre" not in data or "precio" not in data:
-        return jsonify({"error": "Faltan datos: nombre y precio son obligatorios"}), 400
+    if datos is None:
+        return responder_error("Se requiere un JSON válido", 400)
 
-    nombre = data["nombre"]
-    descripcion = data.get("descripcion")
-    precio = data["precio"]
+    servicio, error = servicios_service.crear_servicio(datos)
+    if error:
+        return _responder_error(error)
 
-    conexion = obtener_conexion()
-    cursor = conexion.cursor()
-    cursor.execute(
-        "INSERT INTO servicios (nombre, descripcion, precio) VALUES (%s, %s, %s)",
-        (nombre, descripcion, precio)
-    )
-    conexion.commit()
-    nuevo_id = cursor.lastrowid
-    cursor.close()
-    conexion.close()
-
-    return jsonify({"id": nuevo_id, "nombre": nombre, "descripcion": descripcion, "precio": float(precio)}), 201
+    return responder_exito(servicio, "Servicio creado", 201)
 
 
 @servicios_bp.route("/servicios/<int:servicio_id>", methods=["PUT"])
+@requiere_autenticacion
+@requiere_administrador
 def modificar_servicio(servicio_id: int):
-    datos = request.get_json()
+    """Modifica un servicio que ya existe."""
+    datos = request.get_json(silent=True)
 
-    if "nombre" not in datos or "precio" not in datos:
-        return jsonify({"error": "Faltan datos: nombre y precio"}), 400
+    if datos is None:
+        return responder_error("Se requiere un JSON válido", 400)
 
-    conexion = obtener_conexion()
-    cursor = conexion.cursor()
+    servicio, error = servicios_service.modificar_servicio(servicio_id, datos)
+    if error:
+        return _responder_error(error)
 
-    cursor.execute("SELECT id FROM servicios WHERE id = %s", (servicio_id,))
-    fila = cursor.fetchone()
-    if fila is None:
-        cursor.close()
-        conexion.close()
-        return jsonify({"error": "Servicio no encontrado"}), 404
-
-    cursor.execute(
-        "UPDATE servicios SET nombre = %s, descripcion = %s, precio = %s WHERE id = %s",
-        (datos["nombre"], datos.get("descripcion"), datos["precio"], servicio_id)
-    )
-    conexion.commit()
-    cursor.close()
-    conexion.close()
-
-    
-    return jsonify({"mensaje": "Servicio modificado"}), 200
+    return responder_exito(servicio, "Servicio modificado")
 
 
 @servicios_bp.route("/servicios/<int:servicio_id>", methods=["DELETE"])
+@requiere_autenticacion
+@requiere_administrador
 def desactivar_servicio(servicio_id: int):
+    """Borra un servicio que ya existe."""
+    resultado, error = servicios_service.eliminar_servicio(servicio_id)
+    if error:
+        return _responder_error(error)
 
-    conexion = obtener_conexion()
-    cursor = conexion.cursor()
-
-    cursor.execute("SELECT id FROM servicios WHERE id = %s", (servicio_id,))
-    fila = cursor.fetchone()
-    if fila is None:
-        cursor.close()
-        conexion.close()
-        return jsonify({"error": "Servicio no encontrado"}), 404
-
-    cursor.execute("DELETE FROM servicios WHERE id = %s", (servicio_id,))
-    conexion.commit()
-    cursor.close()
-    conexion.close()
-
-    return jsonify({"mensaje": "Servicio eliminado"}), 200
-
-    
-
-
-
-
+    return responder_exito(resultado, "Servicio eliminado")

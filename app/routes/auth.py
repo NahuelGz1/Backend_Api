@@ -1,89 +1,70 @@
 from flask import Blueprint, request, jsonify
 from app.utils.decorators import requiere_autenticacion
-from app.utils.response import responder_exito, procesar_error_api
+from app.utils.response import responder_exito, responder_error
+from app.utils.security import hashear_password
+from app.repositories.auth_repository import crear_usuario
 from app.services.auth_service import (
+    autenticar_usuario,
     consultar_perfil_usuario,
     consultar_historial_completo_usuario
 )
-from app.utils.security import hashear_password
-from app.repositories.auth_repository import crear_usuario
-from app.services.auth_service import autenticar_usuario
-from app.utils.response import responder_exito, responder_error
-from app.utils.decorators import requiere_autenticacion
 
 auth_bp = Blueprint("auth", __name__)
 
 
-# Endpoint de registro (como el prefijo en app.py será '/api/auth', la ruta final es '/api/auth/register')
+# Endpoint de registro
 @auth_bp.route("/register", methods=["POST"])
 def registrar_usuario():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No se recibieron datos en formato JSON"
-        }), 400
-    
+        return responder_error(code=400, message="No se recibieron datos en formato JSON")
+
     nombre = data.get("nombre")
     email = data.get("email")
     password = data.get("password")
 
     if not nombre or not email or not password:
-        return jsonify({
-            "status": "error",
-            "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
-        }), 400
-    
+        return responder_error(code=400, message="Faltan datos obligatorios: 'nombre', 'email' y 'password'")
+
     password_hash = hashear_password(password)
 
     resultado = crear_usuario(
         nombre=nombre,
         email=email,
         password_hash=password_hash,
-        rol="cliente"
+        rol="CLIENTE"
     )
 
-    if "error" in resultado:
-        return jsonify({
-            "status": "error",
-            "message": resultado["error"]
-        }), 400
-    
-    return jsonify({
-        "status": "success",
-        "message": "Usuario registrado exitosamente",
-        "data": resultado
-    }), 201
+    if isinstance(resultado, dict) and "error" in resultado:
+        return responder_error(code=400, message=resultado["error"])
+
+    return responder_exito(data=resultado, message="Usuario registrado exitosamente", status_code=201)
 
 
 @auth_bp.route("/login", methods=["POST"])
 def iniciar_sesion():
     data = request.get_json(silent=True)
     if not data:
-        return responder_error("No se recibieron datos en formato JSON", 400)
+        return responder_error(code=400, message="No se recibieron datos en formato JSON")
 
     email = data.get("email")
     password = data.get("password")
 
     if not email or not password:
-        return responder_error("Faltan datos obligatorios: 'email' y 'password'", 400)
+        return responder_error(code=400, message="Faltan datos obligatorios: 'email' y 'password'")
 
     try:
         resultado = autenticar_usuario(email, password)
-        return responder_exito(data=resultado, mensaje="Inicio de sesión exitoso", status_code=200)
+        return responder_exito(data=resultado, message="Inicio de sesión exitoso", status_code=200)
     except ValueError as e:
-        return responder_error(str(e), 401)
-    except Exception as e:
-        return responder_error("Ocurrió un error inesperado al procesar la solicitud", 500)
+        return responder_error(code=401, message=str(e))
 
 
 @auth_bp.route("/logout", methods=["POST"])
 @requiere_autenticacion
 def cerrar_sesion():
-    # El cliente elimina el token en el frontend.
-    # Este endpoint valida que el usuario contaba con un token activo y válido.
-    return responder_exito(mensaje="Sesión cerrada correctamente", status_code=200)
+    return responder_exito(data=None, message="Sesión cerrada correctamente", status_code=200)
 
 
 @auth_bp.route("/usuarios/me", methods=["GET"])
@@ -92,9 +73,9 @@ def obtener_usuario_actual():
     try:
         id_usuario = request.usuario_actual.get("sub")
         perfil = consultar_perfil_usuario(id_usuario)
-        return responder_exito(data=perfil, mensaje="Perfil obtenido con éxito", status_code=200)
+        return responder_exito(data=perfil, message="Perfil obtenido con éxito", status_code=200)
     except Exception as e:
-        return procesar_error_api(e)
+        return responder_error(code=500, message="Error al obtener perfil", details=str(e))
 
 
 @auth_bp.route("/usuarios/me/historial", methods=["GET"])
@@ -103,6 +84,6 @@ def obtener_historial_usuario():
     try:
         id_usuario = request.usuario_actual.get("sub")
         historial = consultar_historial_completo_usuario(id_usuario)
-        return responder_exito(data=historial, mensaje="Historial obtenido con éxito", status_code=200)
+        return responder_exito(data=historial, message="Historial obtenido con éxito", status_code=200)
     except Exception as e:
-        return procesar_error_api(e)
+        return responder_error(code=500, message="Error al obtener historial", details=str(e))

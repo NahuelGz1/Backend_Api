@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from app.db import ejecutar_consulta, ejecutar_mutacion
+from db import ejecutar_consulta, ejecutar_mutacion
 
 
 def _ahora():

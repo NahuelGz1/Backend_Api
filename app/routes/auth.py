@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
 from app.utils.security import hashear_password
 from app.repositories.auth_repository import crear_usuario
+from app.services.auth_service import autenticar_usuario
+from app.utils.response import responder_exito, responder_error
+from app.utils.decorators import requiere_autenticacion
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -50,7 +53,31 @@ def registrar_usuario():
 
 @auth_bp.route("/login", methods=["POST"])
 def iniciar_sesion():
-    return {}
+    data = request.get_json(silent=True)
+    if not data:
+        return responder_error("No se recibieron datos en formato JSON", 400)
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return responder_error("Faltan datos obligatorios: 'email' y 'password'", 400)
+
+    try:
+        resultado = autenticar_usuario(email, password)
+        return responder_exito(data=resultado, mensaje="Inicio de sesión exitoso", status_code=200)
+    except ValueError as e:
+        return responder_error(str(e), 401)
+    except Exception as e:
+        return responder_error("Ocurrió un error inesperado al procesar la solicitud", 500)
+
+
+@auth_bp.route("/logout", methods=["POST"])
+@requiere_autenticacion
+def cerrar_sesion():
+    # El cliente elimina el token en el frontend.
+    # Este endpoint valida que el usuario contaba con un token activo y válido.
+    return responder_exito(mensaje="Sesión cerrada correctamente", status_code=200)
 
 
 @auth_bp.route("/usuarios/me", methods=["GET"])

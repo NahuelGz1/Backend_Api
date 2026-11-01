@@ -1,7 +1,10 @@
 """Funciones auxiliares para interactuar con la API de TMDB."""
 
 import os
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 
 def _pedir_a_tmdb(ruta, api_key, parametros=None):
     """Hace un GET a TMDB. Devuelve (datos, error)."""
@@ -113,3 +116,6 @@ def buscar_peliculas(titulo):
             contador += 1
 
     return resultados_formateados, None
+
+# Alias para compatibilidad
+consultar_catalogo_tmdb = buscar_peliculas

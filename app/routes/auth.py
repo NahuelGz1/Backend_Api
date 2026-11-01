@@ -5,6 +5,8 @@ from app.services.auth_service import (
     consultar_perfil_usuario,
     consultar_historial_completo_usuario
 )
+from app.utils.security import hashear_password
+from app.repositories.auth_repository import crear_usuario
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -25,22 +27,31 @@ def registrar_usuario():
     password = data.get("password")
 
     if not nombre or not email or not password:
-
-        #muevo return porque no deja ejecutar el programa
-        
         return jsonify({
-        "status": "error",
-        "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
-    }), 400
+            "status": "error",
+            "message": "Faltan datos obligatorios: 'nombre', 'email' y 'password' son requeridos"
+        }), 400
+    
+    password_hash = hashear_password(password)
 
+    resultado = crear_usuario(
+        nombre=nombre,
+        email=email,
+        password_hash=password_hash,
+        rol="cliente"
+    )
+
+    if "error" in resultado:
+        return jsonify({
+            "status": "error",
+            "message": resultado["error"]
+        }), 400
+    
     return jsonify({
-        "status": "ok",
-        "message": "Datos recibidos correctamente para el registro",
-        "data": {
-            "nombre": nombre,
-            "email": email
-        }
-    }), 200
+        "status": "success",
+        "message": "Usuario registrado exitosamente",
+        "data": resultado
+    }), 201
 
 
 @auth_bp.route("/login", methods=["POST"])

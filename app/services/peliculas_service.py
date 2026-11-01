@@ -3,6 +3,7 @@
 from app.repositories import peliculas_repository as repositorio
 from app.validators import peliculas_validator as validador
 from app.utils import tmdb
+from app.utils.dates import datetime_a_string
 
 
 # -----------Películas propias (las que están en nuestra propia base de datos)--------------------------------------
@@ -10,8 +11,7 @@ from app.utils import tmdb
 def _funcion_a_dict(fila):
     return {
         "id": fila["id"],
-        # isoformat() se encarga de pasar el objeto fecha de Python a texto plano con formato estándar (ej: "2026-12-04T16:00:00") para que el front lo lea bien
-        "fecha_hora_proyeccion": fila["fecha_hora_proyeccion"].isoformat(),
+        "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
         "sala": fila["sala"],
         "local": fila["local"],
         "capacidad": fila["capacidad"],
@@ -63,10 +63,10 @@ def obtener_cartelera():
 
 
 def obtener_pelicula(pelicula_id):
-    """Una película con sus funciones vigentes. Devuelve (pelicula, error)."""
+    """Una película con sus funciones vigentes. Lanza ValueError 404 si no existe."""
     pelicula = repositorio.buscar_por_id(pelicula_id)
     if pelicula is None:
-        return None, {"mensaje": f"No existe la película {pelicula_id}", "codigo": 404}
+        raise ValueError(f"No existe la película {pelicula_id}", 404)
 
     filas = repositorio.listar_funciones_vigentes_de_pelicula(pelicula_id)
 
@@ -77,18 +77,18 @@ def obtener_pelicula(pelicula_id):
         lista_funciones.append(funcion_dict)
 
     pelicula_dict = _pelicula_a_dict(pelicula, lista_funciones)
-    return pelicula_dict, None
+    return pelicula_dict
 
 
 def crear_pelicula(datos):
-    """Valida los datos, guarda la película y la devuelve ya creada."""
+    """Valida los datos, guarda la película y la devuelve ya creada. Lanza ValueError si hay errores."""
     pelicula, errores = validador.validar_pelicula(datos)
     if errores:
-        return None, {"mensaje": "Hay datos inválidos", "codigo": 400, "detalles": errores}
+        raise ValueError("Hay datos inválidos", 400, errores)
 
     # Dos películas con el mismo título y la misma duración las tomamos como la misma
     if repositorio.existe_pelicula(pelicula["titulo"], pelicula["duracion"]):
-        return None, {"mensaje": "Ya existe una película con ese título y esa duración", "codigo": 409}
+        raise ValueError("Ya existe una película con ese título y esa duración", 409)
 
     nuevo_id = repositorio.insertar(pelicula)
     return obtener_pelicula(nuevo_id)
@@ -97,9 +97,9 @@ def crear_pelicula(datos):
 # ------- Búsqueda en TMDB (API externa) ---------------------------
 
 def buscar_peliculas_en_tmdb(titulo):
-    """Valida el título y le pide la búsqueda a utils/tmdb.py. Devuelve (lista, error)."""
+    """Valida el título y le pide la búsqueda a utils/tmdb.py. Lanza ValueError si hay errores."""
     titulo, errores = validador.validar_titulo_busqueda(titulo)
     if errores:
-        return None, {"mensaje": "Hay datos inválidos", "codigo": 400, "detalles": errores}
+        raise ValueError("Hay datos inválidos", 400, errores)
 
     return tmdb.buscar_peliculas(titulo)

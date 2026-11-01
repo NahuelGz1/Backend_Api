@@ -1,12 +1,15 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask
 from dotenv import load_dotenv
+from app.utils.response import responder_exito, responder_error
 
 load_dotenv()
 
 app = Flask(__name__)
 
-BASE_URL = "/api"
+# configuración desde variables de entorno
+app.config['SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'clave_dev_secreta')
+base_url = os.getenv('API_BASE_URL', '/api')
 
 # Importación de Blueprints
 from app.routes.auth import auth_bp
@@ -19,24 +22,33 @@ from app.routes.peliculas import peliculas_bp
 from app.routes.servicios import servicios_bp
 
 # Registro de Blueprints
-app.register_blueprint(auth_bp, url_prefix=f"{BASE_URL}/auth")
-app.register_blueprint(butacas_bp, url_prefix=f"{BASE_URL}/butacas")
-app.register_blueprint(compras_bp, url_prefix=f"{BASE_URL}/compras")
-app.register_blueprint(dashboard_bp, url_prefix=f"{BASE_URL}/dashboard")
-# app.register_blueprint(entradas_bp, url_prefix=f"{BASE_URL}/entradas")
-app.register_blueprint(funciones_bp, url_prefix=f"{BASE_URL}/funciones")
-
-#registramos películas bajo BASE_URL directamente para mantener /api/cartelera y /api/peliculas
-app.register_blueprint(peliculas_bp, url_prefix=BASE_URL)
-app.register_blueprint(servicios_bp, url_prefix=f"{BASE_URL}/servicios")
+app.register_blueprint(auth_bp, url_prefix=f"{base_url}/auth")
+app.register_blueprint(butacas_bp, url_prefix=f"{base_url}/butacas")
+app.register_blueprint(compras_bp, url_prefix=f"{base_url}/compras")
+app.register_blueprint(dashboard_bp, url_prefix=f"{base_url}/dashboard")
+# app.register_blueprint(entradas_bp, url_prefix=f"{base_url}/entradas")
+app.register_blueprint(funciones_bp, url_prefix=f"{base_url}/funciones")
+app.register_blueprint(peliculas_bp, url_prefix=base_url)
+app.register_blueprint(servicios_bp, url_prefix=f"{base_url}/servicios")
 
 
-@app.route(f'{BASE_URL}/ping', methods=['GET'])
+@app.route(f'{base_url}/ping', methods=['GET'])
 def ping():
-    return jsonify({
-        "status": "ok",
-        "message": "Backend Flask running"
-    }), 200
+    return responder_exito(data=None, message="Backend Flask running", status_code=200)
+
+
+# handler global de errores inesperados
+@app.errorhandler(Exception)
+def handle_global_exception(error):
+    # imprime el error detallado solo en la consola del servidor para depuración
+    print(f"[ERROR INESPERADO]: {error}")
+
+    # retorna una respuesta 500 estandarizada sin exponer detalles de la base de datos o del sistema
+    return responder_error(
+        code=500,
+        message="Ocurrió un error interno en el servidor",
+        details=None
+    )
 
 
 if __name__ == '__main__':

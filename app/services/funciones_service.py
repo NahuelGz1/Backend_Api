@@ -7,14 +7,9 @@ from app.utils.dates import datetime_a_string
 
 
 def _funcion_a_dict(fila: dict) -> dict:
-    fecha_str = (
-        fila["fecha_hora_proyeccion"].isoformat()
-        if hasattr(fila["fecha_hora_proyeccion"], "isoformat")
-        else str(fila["fecha_hora_proyeccion"])
-    )
     return {
         "id": fila["funcion_id"],
-        "fecha_hora_proyeccion": fecha_str,
+        "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
         "pelicula": {
             "id": fila["pelicula_id"],
             "titulo": fila["pelicula_titulo"],
@@ -28,15 +23,14 @@ def _funcion_a_dict(fila: dict) -> dict:
     }
 
 
-def obtener_locales():
+def obtener_locales() -> list:
     filas = repositorio.listar_locales()
-    locales = [f["local"] for f in filas]
-    return locales, None
+    return [f["local"] for f in filas]
 
 
-def obtener_salas(local: str = None):
+def obtener_salas(local: str = None) -> list:
     filas = repositorio.listar_salas(local)
-    salas = [
+    return [
         {
             "id": f["id"],
             "nombre": f["nombre"],
@@ -45,37 +39,29 @@ def obtener_salas(local: str = None):
         }
         for f in filas
     ]
-    return salas, None
 
 
-def obtener_funciones():
+def obtener_funciones() -> list:
     filas = repositorio.listar_funciones()
-    funciones = [_funcion_a_dict(f) for f in filas]
-    return funciones, None
+    return [_funcion_a_dict(f) for f in filas]
 
 
-def obtener_funcion_por_id(funcion_id: int):
+def obtener_funcion_por_id(funcion_id: int) -> dict:
     fila = repositorio.buscar_funcion_por_id(funcion_id)
     if not fila:
-        return None, {
-            "code": 404,
-            "message": f"No se encontró la función con ID {funcion_id}",
-        }
-    return _funcion_a_dict(fila), None
+        raise ValueError(f"No se encontró la función con ID {funcion_id}", 404)
+    return _funcion_a_dict(fila)
 
 
-# ---------- ABM de funciones (Subtask 2.1.7) ----------
-# Los errores se lanzan con ValueError(mensaje, codigo[, detalles]);
-# el handler de app.py los convierte en la respuesta JSON de error.
+# ---------- ABM de funciones ----------
 
 def _ahora():
-    """Hora actual de Argentina (UTC-3) sin zona horaria, para comparar con los DATETIME de la base."""
+    """Hora actual de Argentina (UTC-3) sin zona horaria."""
     zona_argentina = timezone(timedelta(hours=-3))
     return datetime.now(zona_argentina).replace(tzinfo=None)
 
 
 def _buscar_funcion_existente(funcion_id):
-    """Devuelve la fila de la función o lanza 404 si no existe."""
     fila = repositorio.buscar_funcion_por_id(funcion_id)
     if fila is None:
         raise ValueError(f"No existe la función {funcion_id}", 404)
@@ -83,7 +69,6 @@ def _buscar_funcion_existente(funcion_id):
 
 
 def _buscar_pelicula_existente(id_pelicula):
-    """Devuelve la película o lanza 404 si no existe."""
     pelicula = peliculas_repository.buscar_por_id(id_pelicula)
     if pelicula is None:
         raise ValueError(f"No existe la película {id_pelicula}", 404)
@@ -91,13 +76,11 @@ def _buscar_pelicula_existente(id_pelicula):
 
 
 def _verificar_sala_existente(id_sala):
-    """Lanza 404 si la sala no existe."""
     if repositorio.buscar_sala_por_id(id_sala) is None:
         raise ValueError(f"No existe la sala {id_sala}", 404)
 
 
 def _verificar_fecha_futura(fecha_hora):
-    """Lanza 400 si la fecha y hora no es posterior al momento actual."""
     if fecha_hora <= _ahora():
         raise ValueError(
             "La fecha y hora de la función tiene que ser posterior al momento actual",
@@ -107,12 +90,6 @@ def _verificar_fecha_futura(fecha_hora):
 
 
 def _verificar_sin_superposicion(id_sala, inicio, duracion, funcion_a_ignorar=None):
-    """Lanza 409 si la función se pisa con otra de la misma sala.
-
-    Cada función ocupa la sala desde su inicio hasta inicio + duración de la película
-    + el tiempo de limpieza entre funciones. Dos intervalos [A, B) y [C, D) se pisan
-    si A < D y C < B. En el PATCH se ignora la propia función que se está modificando.
-    """
     minutos_de_limpieza = 15
     fin = inicio + timedelta(minutes=(duracion or 0) + minutos_de_limpieza)
 
@@ -141,7 +118,6 @@ def _verificar_sin_superposicion(id_sala, inicio, duracion, funcion_a_ignorar=No
 
 
 def programar_funcion(datos):
-    """POST /funciones: valida, revisa película, sala, fecha y superposición, y crea la función."""
     funcion, errores = validador.validar_funcion_nueva(datos)
     if errores:
         raise ValueError("Hay datos inválidos", 400, errores)
@@ -164,11 +140,6 @@ def programar_funcion(datos):
 
 
 def modificar_funcion(funcion_id, datos):
-    """PATCH /funciones/<id>: cambia solo los campos enviados.
-
-    No se permite modificar una función que ya se proyectó ni una que tenga
-    entradas vendidas (los clientes compraron para esa película, sala y horario).
-    """
     actual = _buscar_funcion_existente(funcion_id)
 
     cambios, errores = validador.validar_cambios_funcion(datos)
@@ -186,7 +157,6 @@ def modificar_funcion(funcion_id, datos):
             {"entradas_vendidas": int(entradas["activas"])},
         )
 
-    # Lo que no vino en el JSON se mantiene como está
     id_pelicula = cambios.get("id_pelicula", actual["pelicula_id"])
     id_sala = cambios.get("id_sala", actual["sala_id"])
     fecha_hora = cambios.get("fecha_hora_proyeccion", actual["fecha_hora_proyeccion"])
@@ -202,11 +172,6 @@ def modificar_funcion(funcion_id, datos):
 
 
 def dar_baja_funcion(funcion_id):
-    """DELETE /funciones/<id>: borra la función solo si no tiene entradas.
-
-    La tabla funciones no tiene columna para baja lógica, y las entradas apuntan
-    a la función con una clave foránea: si se borrara, se perdería el historial.
-    """
     _buscar_funcion_existente(funcion_id)
 
     entradas = repositorio.contar_entradas_de_funcion(funcion_id)

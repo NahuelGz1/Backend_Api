@@ -1,7 +1,8 @@
 from flask import jsonify
 
-def responder_exito(data=None, message="Operación exitosa", status_code=200):
-    """Formato de respuesta exitosa según agents.md"""
+
+def responder_exito(data=None, message: str = "Operación exitosa", status_code: int = 200):
+    """Retorna una respuesta estandarizada de éxito JSON."""
     body = {
         "ok": True,
         "data": data,
@@ -9,8 +10,9 @@ def responder_exito(data=None, message="Operación exitosa", status_code=200):
     }
     return jsonify(body), status_code
 
-def responder_error(code=400, message="Error procesando la solicitud", details=None):
-    """Formato de respuesta de error según agents.md"""
+
+def responder_error(code: int = 400, message: str = "Error procesando la solicitud", details=None):
+    """Retorna una respuesta estandarizada de error JSON."""
     body = {
         "ok": False,
         "error": {

@@ -1,7 +1,7 @@
 from datetime import datetime
 from app.repositories.compras_repository import (crear_entrada, obtener_entradas_por_id,
-    obtener_entradas_por_usuario, cancelar_entrada, crear_compra_servicio,
-    obtener_compras_servicios_por_usuario, cancelar_compra_servicio, verificar_butaca_ocupada)
+    obtener_entradas_por_usuario, cancelar_entrada, crear_compra_servicio, 
+    cancelar_compra_servicio, verificar_butaca_ocupada, obtener_compra_servicio_por_id)
 from app.repositories.funciones_repository import obtener_funcion_por_id
 
 def procesar_compra(datos_compra, id_usuario):
@@ -31,14 +31,62 @@ def procesar_compra(datos_compra, id_usuario):
 
     return {"mensaje": "Compra procesada exitosamente."}
 
-def obtener_entradas_usuario(id_usuario):
+def obtener_detalle_compra_servicio(compra_id, id_usuario_peticion):
+    # Recuerda que esta usa obtener_detalle_servicio_bd (la que tiene el JOIN)
+    resultado = obtener_detalle_servicio_bd(compra_id)
+    
+    if not resultado:
+        return {"error": "La compra de servicio no existe."}, 404
+        
+    compra = resultado[0] 
+    
+    if compra["id_usuario"] != id_usuario_peticion:
+        return {"error": "No tienes permiso para ver esta compra de servicio."}, 403
+        
+    del compra["id_usuario"]
+    
+    return {"data": compra}, 200
 
-    entradas = obtener_entradas_por_usuario(id_usuario)
-    servicios = obtener_compras_servicios_por_usuario(id_usuario)
+def obtener_entradas_por_id(compra_id, id_usuario_peticion):
 
-    if not entradas and not servicios:
-        return {"mensaje": "No se encontraron compras para este usuario."}, 404
+    resultado = obtener_entradas_por_id(compra_id)
 
-    return {
-        "entradas": entradas,
-        "servicios": servicios}, 200 
+    if not resultado:
+        return {"error": "La compra no existe."}, 404
+
+    compra = resultado[0]
+
+    if compra["id_usuario"] != id_usuario_peticion:
+        return {"error": "No tienes permiso para ver esta compra."}, 403
+
+    return {"detalles": compra}, 200
+
+def cancelar_entrada_usuario(entrada_id, id_usuario_peticion):
+
+    resultado = obtener_entradas_por_id(entrada_id)
+
+    if not resultado:
+        return {"error": "La entrada no existe."}, 404
+
+    entrada = resultado[0]
+
+    if entrada["id_usuario"] != id_usuario_peticion:
+        return {"error": "No tienes permiso para cancelar esta entrada."}, 403
+
+    cancelar_entrada(entrada_id)
+    return {"mensaje": "Entrada cancelada exitosamente."}, 200
+
+def anular_compra_servicio(compra_id, id_usuario_peticion):
+
+    resultado = obtener_compra_servicio_por_id(compra_id)
+
+    if not resultado:
+        return {"error": "La compra de servicio no existe."}, 404
+
+    compra = resultado[0]
+
+    if compra["id_usuario"] != id_usuario_peticion:
+        return {"error": "No tienes permiso para cancelar esta compra de servicio."}, 403
+
+    cancelar_compra_servicio(compra_id)
+    return {"mensaje": "Compra de servicio cancelada exitosamente."}, 200

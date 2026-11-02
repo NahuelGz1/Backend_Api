@@ -37,6 +37,21 @@ def ping():
     return responder_exito(data=None, message="Backend Flask running", status_code=200)
 
 
+# handler específico para ValueError (errores controlados con código de estado custom)
+@app.errorhandler(ValueError)
+def handle_value_error(error):
+    mensaje = error.args[0] if len(error.args) > 0 else "Error de validación"
+    status_code = error.args[1] if len(error.args) > 1 and isinstance(error.args[1], int) else 400
+
+    detalles = error.args[2] if len(error.args) > 2 else None
+
+    return responder_error(
+        code=status_code,
+        message=str(mensaje),
+        details=detalles
+    )
+
+
 # handler global de errores inesperados
 @app.errorhandler(Exception)
 def handle_global_exception(error):

@@ -1,8 +1,9 @@
 from datetime import datetime
 from app.repositories.compras_repository import (crear_entrada, obtener_entradas_por_id,
-    obtener_entradas_por_usuario, cancelar_entrada, crear_compra_servicio, 
+    cancelar_entrada, crear_compra_servicio, obtener_detalle_servicio_bd,
     cancelar_compra_servicio, verificar_butaca_ocupada, obtener_compra_servicio_por_id)
 from app.repositories.funciones_repository import obtener_funcion_por_id
+from app.utils.qr import generar_codigo_qr
 
 def procesar_compra(datos_compra, id_usuario):
     #Verificar si la funcion existe y si la butaca está disponible
@@ -12,15 +13,16 @@ def procesar_compra(datos_compra, id_usuario):
 
     funcion = obtener_funcion_por_id(id_funcion)
     if not funcion:
-        return {"error": "La función no existe."}
+        return {"error": "La función no existe."}, 404
     
     for butacas in lista_butaca:
         if verificar_butaca_ocupada(id_funcion, butacas):
-            return {"error": f"La butaca {butacas} ya está ocupada. Compra otra butaca."}
+            return {"error": f"La butaca {butacas} ya está ocupada. Compra otra butaca."}, 400
     
     for numero_butaca in lista_butaca:
-        codigo_qr_temp = f"QR-{id_funcion}-{numero_butaca}-{id_usuario}"
-        crear_entrada(id_usuario, id_funcion, numero_butaca)
+        texto_qr = f"QR-{id_funcion}-{numero_butaca}-{id_usuario}"
+        codigo_qr_base64 = generar_codigo_qr(texto_qr)
+        crear_entrada(id_usuario, id_funcion, numero_butaca, codigo_qr_base64)
 
     #Posibilidad de cambiar el date_time con un fecha_actual = datetime.now() por si datos_compra no tiene fecha_hora_compra, pero por ahora lo dejamos así
     date_time = datos_compra.get("fecha_hora_compra")
@@ -29,10 +31,10 @@ def procesar_compra(datos_compra, id_usuario):
     for id_servicio in lista_servicios:
         crear_compra_servicio(id_usuario, id_servicio, date_time)
 
-    return {"mensaje": "Compra procesada exitosamente."}
+    return {"mensaje": "Compra procesada exitosamente."}, 201
 
 def obtener_detalle_compra_servicio(compra_id, id_usuario_peticion):
-    # Recuerda que esta usa obtener_detalle_servicio_bd (la que tiene el JOIN)
+    #obtener la compra de servicio por id y verificar si pertenece al usuario que hace la petición
     resultado = obtener_detalle_servicio_bd(compra_id)
     
     if not resultado:
@@ -47,7 +49,7 @@ def obtener_detalle_compra_servicio(compra_id, id_usuario_peticion):
     
     return {"data": compra}, 200
 
-def obtener_entradas_por_id(compra_id, id_usuario_peticion):
+def obtener_entrada_detalle(compra_id, id_usuario_peticion):
 
     resultado = obtener_entradas_por_id(compra_id)
 

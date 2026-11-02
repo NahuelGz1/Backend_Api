@@ -1,8 +1,5 @@
-"""Validaciones de los datos de servicios (POST y PUT /servicios)."""
-
-
 def _validar_nombre(datos: dict, errores: dict):
-    """Devuelve el nombre si es un texto válido no vacío (máx 100 caracteres)."""
+    #Devuelve el nombre si es un texto válido no vacío (máx 100 caracteres)
     valor = datos.get("nombre")
 
     if valor is None:
@@ -26,7 +23,7 @@ def _validar_nombre(datos: dict, errores: dict):
 
 
 def _validar_descripcion(datos: dict, errores: dict):
-    """Devuelve la descripción limpia si vino, o None si no vino o es vacía."""
+    #Devuelve la descripción limpia, o None si no vino o esta vacía
     valor = datos.get("descripcion")
 
     if valor is None:
@@ -44,7 +41,7 @@ def _validar_descripcion(datos: dict, errores: dict):
 
 
 def _validar_precio(datos: dict, errores: dict):
-    """Devuelve el precio si es un número válido mayor a 0 y dentro del rango DECIMAL(10,2)."""
+    #Devuelve el precio si es un número válido mayor a 0 y dentro del rango DECIMAL(10,2)
     valor = datos.get("precio")
 
     if valor is None:
@@ -67,10 +64,8 @@ def _validar_precio(datos: dict, errores: dict):
 
 
 def validar_servicio(datos: dict) -> tuple:
-    """Valida el JSON de POST y PUT /servicios.
-
-    Obligatorios: nombre y precio. Opcional: descripción.
-    """
+    #Valida el JSON de POST y PUT /servicios, obligatorios: nombre y precio. Opcional: descripción.
+    
     if not isinstance(datos, dict):
         return None, {"cuerpo": "Tiene que ser un JSON con los datos del servicio"}
 

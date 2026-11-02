@@ -2,7 +2,7 @@ from app.db import ejecutar_consulta, ejecutar_mutacion
 
 
 def listar() -> list[dict]:
-    """Obtiene todos los servicios ordenados por ID."""
+    #Obtiene todos los servicios ordenados por ID
     sql = """
           SELECT id, nombre, descripcion, precio
           FROM servicios
@@ -12,7 +12,7 @@ def listar() -> list[dict]:
 
 
 def buscar_por_id(servicio_id: int) -> dict | None:
-    """Devuelve el servicio como diccionario, o None si no existe."""
+    #Devuelve el servicio como diccionario, o None si no existe
     sql = """
           SELECT id, nombre, descripcion, precio
           FROM servicios
@@ -23,7 +23,7 @@ def buscar_por_id(servicio_id: int) -> dict | None:
 
 
 def insertar(servicio: dict) -> int:
-    """Guarda un servicio nuevo y devuelve su ID generado."""
+    #Guarda un servicio nuevo y devuelve su ID generado
     sql = """
           INSERT INTO servicios (nombre, descripcion, precio)
           VALUES (%s, %s, %s) \
@@ -33,7 +33,6 @@ def insertar(servicio: dict) -> int:
 
 
 def modificar(servicio_id: int, servicio: dict) -> None:
-    """Modifica los datos de un servicio existente."""
     sql = """
           UPDATE servicios
           SET nombre = %s, descripcion = %s, precio = %s
@@ -49,6 +48,5 @@ def modificar(servicio_id: int, servicio: dict) -> None:
 
 
 def eliminar(servicio_id: int) -> None:
-    """Elimina un servicio por su ID."""
     sql = "DELETE FROM servicios WHERE id = %s"
     ejecutar_mutacion(sql, (servicio_id,))

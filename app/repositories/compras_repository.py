@@ -72,3 +72,22 @@ def verificar_butaca_ocupada(id_funcion, numero_butaca):
     parametros = (id_funcion, numero_butaca)
     resultado = ejecutar_consulta(sql, parametros)
     return len(resultado) > 0
+
+def obtener_detalle_servicio_bd(compra_id):
+    sql = """
+        SELECT cs.id, cs.id_usuario, cs.estado, cs.fecha_hora_compra, 
+               s.nombre, s.descripcion, s.precio
+        FROM compras_servicios cs
+        JOIN servicios s ON cs.id_servicio = s.id
+        WHERE cs.id = %s
+    """
+    parametros = (compra_id,)
+    return ejecutar_consulta(sql, parametros)
+
+def obtener_compra_servicio_por_id(compra_id):
+    sql = """
+        SELECT * FROM compras_servicios
+        WHERE id = %s
+    """
+    parametros = (compra_id,)
+    return ejecutar_consulta(sql, parametros)

@@ -23,7 +23,7 @@ from app.routes.servicios import servicios_bp
 
 # Registro de Blueprints
 app.register_blueprint(auth_bp, url_prefix=f"{base_url}/auth")
-app.register_blueprint(butacas_bp, url_prefix=f"{base_url}/butacas")
+app.register_blueprint(butacas_bp, url_prefix=f"{base_url}/funciones")
 app.register_blueprint(compras_bp, url_prefix=f"{base_url}/compras")
 app.register_blueprint(dashboard_bp, url_prefix=f"{base_url}/dashboard")
 # app.register_blueprint(entradas_bp, url_prefix=f"{base_url}/entradas")

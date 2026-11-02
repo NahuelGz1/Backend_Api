@@ -74,6 +74,7 @@ CREATE TABLE compras_servicios (
     id_usuario INT NOT NULL,
     id_servicio INT NOT NULL,
     fecha_hora_compra DATETIME NOT NULL,
+    estado VARCHAR(20) DEFAULT 'comprada',
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
     FOREIGN KEY (id_servicio) REFERENCES servicios(id)
 );

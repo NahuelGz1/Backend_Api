@@ -7,11 +7,9 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Configuración desde variables de entorno
 app.config['SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'clave_dev_secreta')
 base_url = os.getenv('API_BASE_URL', '/api')
 
-# Importación de Blueprints
 from app.routes.auth import auth_bp
 from app.routes.butacas import butacas_bp
 from app.routes.compras import compras_bp
@@ -20,13 +18,12 @@ from app.routes.funciones import funciones_bp
 from app.routes.peliculas import peliculas_bp
 from app.routes.servicios import servicios_bp
 
-# Registro de Blueprints
 app.register_blueprint(auth_bp, url_prefix=f"{base_url}/auth")
 app.register_blueprint(butacas_bp, url_prefix=f"{base_url}/butacas")
 app.register_blueprint(compras_bp, url_prefix=f"{base_url}/compras")
 app.register_blueprint(dashboard_bp, url_prefix=f"{base_url}/dashboard")
 app.register_blueprint(funciones_bp, url_prefix=f"{base_url}/funciones")
-app.register_blueprint(peliculas_bp, url_prefix=base_url)
+app.register_blueprint(peliculas_bp, url_prefix=f"{base_url}/peliculas")
 app.register_blueprint(servicios_bp, url_prefix=f"{base_url}/servicios")
 
 
@@ -35,7 +32,15 @@ def ping():
     return responder_exito(data=None, message="Backend Flask running", status_code=200)
 
 
-# Handler específico para ValueError (errores controlados de negocio/validación)
+@app.errorhandler(404)
+def handle_404_error(error):
+    return responder_error(
+        code=404,
+        message="La ruta solicitada no existe en el servidor",
+        details=None
+    )
+
+
 @app.errorhandler(ValueError)
 def handle_value_error(error):
     mensaje = error.args[0] if len(error.args) > 0 else "Error de validación"
@@ -49,7 +54,6 @@ def handle_value_error(error):
     )
 
 
-# Handler para permisos de acceso denegado
 @app.errorhandler(PermissionError)
 def handle_permission_error(error):
     mensaje = error.args[0] if len(error.args) > 0 else "Acceso no autorizado"
@@ -60,7 +64,6 @@ def handle_permission_error(error):
     )
 
 
-# Handler global de errores inesperados
 @app.errorhandler(Exception)
 def handle_global_exception(error):
     print(f"[ERROR INESPERADO]: {error}")

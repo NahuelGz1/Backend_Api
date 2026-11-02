@@ -2,7 +2,7 @@ from datetime import datetime
 from app.repositories.compras_repository import (crear_entrada, obtener_entradas_por_id,
     cancelar_entrada, crear_compra_servicio, obtener_detalle_servicio_bd,
     cancelar_compra_servicio, verificar_butaca_ocupada, obtener_compra_servicio_por_id)
-from app.repositories.funciones_repository import obtener_funcion_por_id
+from app.repositories.funciones_repository import buscar_funcion_por_id
 from app.utils.qr import generar_codigo_qr
 
 def procesar_compra(datos_compra, id_usuario):
@@ -11,7 +11,7 @@ def procesar_compra(datos_compra, id_usuario):
     lista_butaca = datos_compra.get("numero_butaca", [])
     lista_servicios = datos_compra.get("servicios", [])
 
-    funcion = obtener_funcion_por_id(id_funcion)
+    funcion = buscar_funcion_por_id(id_funcion)
     if not funcion:
         return {"error": "La función no existe."}, 404
     

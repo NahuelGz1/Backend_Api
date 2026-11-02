@@ -1,7 +1,7 @@
 from app.services import funciones_service
-from flask import Blueprint
+from flask import Blueprint, request
 from app.utils.response import responder_exito, responder_error
-from app.utils.decorators import requiere_autenticacion
+from app.utils.decorators import requiere_autenticacion, requiere_administrador
 funciones_bp = Blueprint("funciones", __name__)
 
 @funciones_bp.route("/locales", methods=["GET"])
@@ -46,14 +46,33 @@ def obtener_detalle_funcion(funcion_id: int):
 
 
 @funciones_bp.route("/funciones", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
 def programar_funcion():
-    return {}
+    """POST /funciones -> Programa una función nueva (solo administrador).
+
+    JSON: {"id_pelicula": int, "id_sala": int, "fecha_hora_proyeccion": "YYYY-MM-DD HH:MM:SS"}
+    """
+    datos = request.get_json(silent=True)
+    funcion = funciones_service.programar_funcion(datos)
+    return responder_exito(data=funcion, message="Función programada", status_code=201)
+
+
+@funciones_bp.route("/funciones/<int:funcion_id>", methods=["PATCH"])
+@requiere_autenticacion
+@requiere_administrador
+def modificar_funcion(funcion_id: int):
+    """PATCH /funciones/<funcion_id> -> Modifica película, sala y/o fecha y hora (solo administrador).
+    Se envían solo los campos que se quieren cambiar."""
+    datos = request.get_json(silent=True)
+    funcion = funciones_service.modificar_funcion(funcion_id, datos)
+    return responder_exito(data=funcion, message="Función modificada")
 
 
 @funciones_bp.route("/funciones/<int:funcion_id>", methods=["DELETE"])
+@requiere_autenticacion
+@requiere_administrador
 def dar_baja_funcion(funcion_id: int):
-    return {}
-
-@funciones_bp.route("/funciones/<int:funcion_id>", methods=["PATH"])
-def modificar_funcion(funcion_id: int):
-    return {}
+    """DELETE /funciones/<funcion_id> -> Da de baja una función sin entradas (solo administrador)."""
+    resultado = funciones_service.dar_baja_funcion(funcion_id)
+    return responder_exito(data=resultado, message="Función dada de baja")

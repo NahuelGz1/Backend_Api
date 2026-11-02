@@ -14,7 +14,7 @@ def obtener_conexion():
         database=os.getenv("DB_NAME", "cine_db"),
         port=int(os.getenv("DB_PORT", 3306)),
         cursorclass=DictCursor,
-        autocommit=False
+        autocommit=False,
     )
 
 def ejecutar_consulta(sql: str, parametros: tuple = ()) -> list[dict]:

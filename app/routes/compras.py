@@ -29,6 +29,7 @@ def cancelar_compra(entrada_id: int):
 
 @compras_bp.route("/validar-qr", methods=["POST"])
 @requiere_autenticacion
+@requiere_administrador
 def validar_qr_compra():
     datos = request.get_json(silent=True) or {}
     resultado = qr_service.validar_acceso(datos.get("codigo_qr"))

@@ -37,7 +37,7 @@ def requiere_administrador(f):
     def decorated(*args, **kwargs):
         usuario = getattr(request, "usuario_actual", None)
         rol = str(usuario.get("rol", "")).lower() if usuario else ""
-        if not usuario or rol != "admin":
+        if not usuario or rol != "administrador":
             return responder_error(code=403, message="Acceso restringido a administradores")
         return f(*args, **kwargs)
 

@@ -47,6 +47,21 @@ def obtener_entrada_por_id(entrada_id: int) -> dict | None:
     return resultado[0] if resultado else None
 
 
+def obtener_entrada_por_qr(codigo_qr: str) -> dict | None:
+    sql = """
+          SELECT e.id AS id_entrada, c.id_usuario, e.numero_butaca, e.codigo_qr, e.estado,
+                 f.fecha_hora_proyeccion, p.titulo AS pelicula, s.nombre AS sala, e.precio_historico
+          FROM entradas e
+                   JOIN compras c ON e.id_compra = c.id
+                   JOIN funciones f ON e.id_funcion = f.id
+                   JOIN peliculas p ON f.id_pelicula = p.id
+                   JOIN salas s ON f.id_sala = s.id
+          WHERE e.codigo_qr = %s
+          """
+    resultado = ejecutar_consulta(sql, (codigo_qr,))
+    return resultado[0] if resultado else None
+
+
 def actualizar_estado_entrada(entrada_id: int, nuevo_estado: str) -> int:
     sql = "UPDATE entradas SET estado = %s WHERE id = %s"
     return ejecutar_mutacion(sql, (nuevo_estado, entrada_id))

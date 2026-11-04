@@ -12,7 +12,7 @@ def _servicio_a_dict(fila: dict) -> dict:
 
 
 def _validar(datos: dict) -> dict:
-    """Valida los datos de entrada y lanza ValueError si hay errores."""
+    #Valida los datos de entrada y tira error si hay un problema
     servicio, errores = validador.validar_servicio(datos)
     if errores:
         raise ValueError("Hay datos inválidos", 400, errores)
@@ -20,13 +20,12 @@ def _validar(datos: dict) -> dict:
 
 
 def listar_servicios() -> list:
-    """Lista todos los servicios registrados."""
     filas = repositorio.listar()
     return [_servicio_a_dict(fila) for fila in filas]
 
 
 def obtener_servicio(servicio_id: int) -> dict:
-    """Busca un servicio por ID o lanza ValueError 404 si no existe."""
+    #Busca un servicio por ID o tira 404 si no existe
     fila = repositorio.buscar_por_id(servicio_id)
     if fila is None:
         raise ValueError(f"No existe el servicio {servicio_id}", 404)
@@ -34,7 +33,7 @@ def obtener_servicio(servicio_id: int) -> dict:
 
 
 def crear_servicio(datos: dict) -> dict:
-    """Valida los datos, guarda el servicio en la base de datos y lo devuelve."""
+    #Valida los datos, guarda el servicio en la base de datos y lo devuelve
     servicio = _validar(datos)
     nuevo_id = repositorio.insertar(servicio)
 
@@ -44,8 +43,7 @@ def crear_servicio(datos: dict) -> dict:
 
 
 def modificar_servicio(servicio_id: int, datos: dict) -> dict:
-    """Modifica un servicio existente."""
-    obtener_servicio(servicio_id)  # Lanza 404 si no existe
+    obtener_servicio(servicio_id)  
     servicio = _validar(datos)
 
     repositorio.modificar(servicio_id, servicio)
@@ -56,7 +54,6 @@ def modificar_servicio(servicio_id: int, datos: dict) -> dict:
 
 
 def eliminar_servicio(servicio_id: int) -> dict:
-    """Elimina un servicio existente."""
-    obtener_servicio(servicio_id)  # Lanza 404 si no existe
+    obtener_servicio(servicio_id)  
     repositorio.eliminar(servicio_id)
     return {"id": servicio_id}

@@ -2,6 +2,7 @@ import os
 from functools import wraps
 from flask import request
 from app.utils.response import responder_error
+from app.utils.constantes import ROL_ADMINISTRADOR
 
 try:
     import jwt
@@ -37,7 +38,7 @@ def requiere_administrador(f):
     def decorated(*args, **kwargs):
         usuario = getattr(request, "usuario_actual", None)
         rol = str(usuario.get("rol", "")).lower() if usuario else ""
-        if not usuario or rol != "administrador":
+        if not usuario or rol != ROL_ADMINISTRADOR:
             return responder_error(code=403, message="Acceso restringido a administradores")
         return f(*args, **kwargs)
 

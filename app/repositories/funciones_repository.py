@@ -1,11 +1,12 @@
 from app.db import ejecutar_consulta, ejecutar_mutacion
+from app.utils.constantes import ESTADO_ENTRADA_CANCELADA
 
 
 def listar_locales() -> list[dict]:
     sql = """
           SELECT DISTINCT local
           FROM salas
-          ORDER BY local ASC; \
+          ORDER BY local ASC;
           """
     return ejecutar_consulta(sql)
 
@@ -13,7 +14,7 @@ def listar_locales() -> list[dict]:
 def listar_salas(local: str | None = None) -> list[dict]:
     sql = """
           SELECT id, nombre, capacidad, local
-          FROM salas \
+          FROM salas
           """
     parametros = []
     if local:
@@ -38,7 +39,7 @@ def listar_funciones() -> list[dict]:
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
                    JOIN salas s ON s.id = f.id_sala
-          ORDER BY f.fecha_hora_proyeccion ASC; \
+          ORDER BY f.fecha_hora_proyeccion ASC;
           """
     return ejecutar_consulta(sql)
 
@@ -57,7 +58,7 @@ def buscar_funcion_por_id(funcion_id: int) -> dict | None:
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
                    JOIN salas s ON s.id = f.id_sala
-          WHERE f.id = %s; \
+          WHERE f.id = %s;
           """
     filas = ejecutar_consulta(sql, (funcion_id,))
     return filas[0] if filas else None
@@ -67,7 +68,7 @@ def buscar_sala_por_id(sala_id: int) -> dict | None:
     sql = """
           SELECT id, nombre, capacidad, local
           FROM salas
-          WHERE id = %s; \
+          WHERE id = %s;
           """
     filas = ejecutar_consulta(sql, (sala_id,))
     return filas[0] if filas else None
@@ -83,9 +84,18 @@ def listar_funciones_de_sala(sala_id: int) -> list[dict]:
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
           WHERE f.id_sala = %s
-          ORDER BY f.fecha_hora_proyeccion ASC; \
+          ORDER BY f.fecha_hora_proyeccion ASC;
           """
     return ejecutar_consulta(sql, (sala_id,))
+
+
+def obtener_butacas_ocupadas(id_funcion: int) -> list:
+    sql = """
+          SELECT numero_butaca FROM entradas
+          WHERE id_funcion = %s AND estado != %s;
+          """
+    resultado = ejecutar_consulta(sql, (id_funcion, ESTADO_ENTRADA_CANCELADA))
+    return [item["numero_butaca"] for item in resultado]
 
 
 def contar_entradas_de_funcion(funcion_id: int) -> dict:
@@ -94,7 +104,7 @@ def contar_entradas_de_funcion(funcion_id: int) -> dict:
               COUNT(*) AS total,
               COALESCE(SUM(CASE WHEN estado IN ('comprada', 'utilizada') THEN 1 ELSE 0 END), 0) AS activas
           FROM entradas
-          WHERE id_funcion = %s; \
+          WHERE id_funcion = %s;
           """
     filas = ejecutar_consulta(sql, (funcion_id,))
     return filas[0]
@@ -103,7 +113,7 @@ def contar_entradas_de_funcion(funcion_id: int) -> dict:
 def insertar_funcion(id_pelicula: int, id_sala: int, fecha_hora_proyeccion) -> int:
     sql = """
           INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion)
-          VALUES (%s, %s, %s); \
+          VALUES (%s, %s, %s);
           """
     return ejecutar_mutacion(sql, (id_pelicula, id_sala, fecha_hora_proyeccion))
 
@@ -112,7 +122,7 @@ def actualizar_funcion(funcion_id: int, id_pelicula: int, id_sala: int, fecha_ho
     sql = """
           UPDATE funciones
           SET id_pelicula = %s, id_sala = %s, fecha_hora_proyeccion = %s
-          WHERE id = %s; \
+          WHERE id = %s;
           """
     ejecutar_mutacion(sql, (id_pelicula, id_sala, fecha_hora_proyeccion, funcion_id))
 

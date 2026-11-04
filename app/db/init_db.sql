@@ -55,27 +55,37 @@ CREATE TABLE funciones (
     FOREIGN KEY (id_sala) REFERENCES salas(id)
 );
 
+-- Compras centrales. Agrupa entradas y servicios en una misma transaccion.
+CREATE TABLE compras (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT NOT NULL,
+    fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
+);
+
 -- Entradas. Estado: 'comprada', 'cancelada' o 'utilizada'
 -- La butaca no se puede repetir en la misma función
 CREATE TABLE entradas (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario INT NOT NULL,
+    id_compra INT NOT NULL,
     id_funcion INT NOT NULL,
     numero_butaca INT NOT NULL,
+    precio_historico DECIMAL(10, 2) NOT NULL,
     codigo_qr VARCHAR(255) UNIQUE NOT NULL,
     estado VARCHAR(20) DEFAULT 'comprada',
     UNIQUE KEY butaca_unica_por_funcion (id_funcion, numero_butaca),
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
+    FOREIGN KEY (id_compra) REFERENCES compras(id),
     FOREIGN KEY (id_funcion) REFERENCES funciones(id)
 );
 
--- Compras de servicios
-CREATE TABLE compras_servicios (
+-- Servicios adicionales asociados al mismo ticket de compra
+CREATE TABLE detalles_servicios (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario INT NOT NULL,
+    id_compra INT NOT NULL,
     id_servicio INT NOT NULL,
-    fecha_hora_compra DATETIME NOT NULL,
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
+    cantidad INT DEFAULT 1,
+    precio_historico DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (id_compra) REFERENCES compras(id),
     FOREIGN KEY (id_servicio) REFERENCES servicios(id)
 );
 

@@ -2,11 +2,12 @@ from app.db import ejecutar_consulta, ejecutar_mutacion
 
 
 def listar() -> list[dict]:
-    """Obtiene todos los servicios ordenados por ID."""
+    """Obtiene todos los servicios activos ordenados por ID."""
     sql = """
           SELECT id, nombre, descripcion, precio
           FROM servicios
-          ORDER BY id \
+          WHERE activo = TRUE
+          ORDER BY id
           """
     return ejecutar_consulta(sql)
 
@@ -49,6 +50,6 @@ def modificar(servicio_id: int, servicio: dict) -> None:
 
 
 def eliminar(servicio_id: int) -> None:
-    """Elimina un servicio por su ID."""
-    sql = "DELETE FROM servicios WHERE id = %s"
+    """Desactiva el servicio"""
+    sql = "UPDATE servicios SET activo = FALSE WHERE id = %s"
     ejecutar_mutacion(sql, (servicio_id,))

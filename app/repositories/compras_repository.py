@@ -74,3 +74,36 @@ def verificar_butaca_ocupada(id_funcion: int, numero_butaca: str) -> bool:
           """
     resultado = ejecutar_consulta(sql, (id_funcion, numero_butaca, ESTADO_ENTRADA_CANCELADA))
     return len(resultado) > 0
+
+def obtener_servicios_por_compra(id_compra: int) -> list:
+    sql = """
+          SELECT ds.id AS id_detalle, s.nombre, ds.cantidad, ds.usado
+          FROM detalles_servicios ds
+                   JOIN servicios s ON ds.id_servicio = s.id
+          WHERE ds.id_compra = %s \
+          """
+    return ejecutar_consulta(sql, (id_compra,))
+
+
+def marcar_servicio_usado(id_detalle: int) -> bool:
+    sql = "UPDATE detalles_servicios SET usado = TRUE WHERE id = %s AND usado = FALSE"
+    filas_afectadas = ejecutar_comando(sql, (id_detalle,))
+    return filas_afectadas > 0
+
+#función para validar las 2 horas
+def obtener_datos_resumen_compra(id_compra: int) -> dict | None:
+    sql = """
+          SELECT c.id_usuario, MIN(f.fecha_hora_proyeccion) as fecha_proyeccion
+          FROM compras c
+                   JOIN entradas e ON c.id = e.id_compra
+                   JOIN funciones f ON e.id_funcion = f.id
+          WHERE c.id = %s
+          GROUP BY c.id_usuario
+          """
+    resultado = ejecutar_consulta(sql, (id_compra,))
+    return resultado[0] if resultado else None
+
+
+def cancelar_entradas_por_compra(id_compra: int) -> int:
+    sql = "UPDATE entradas SET estado = %s WHERE id_compra = %s AND estado = %s"
+    return ejecutar_mutacion(sql, (ESTADO_ENTRADA_CANCELADA, id_compra, ESTADO_ENTRADA_COMPRADA))

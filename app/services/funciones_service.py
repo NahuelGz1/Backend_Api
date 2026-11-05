@@ -4,12 +4,14 @@ from app.repositories import funciones_repository as repositorio
 from app.repositories import peliculas_repository
 from app.validators import funciones_validator as validador
 from app.utils.dates import datetime_a_string
+from app.utils.constantes import PRECIO_ENTRADA_FIJO
 
 
 def _funcion_a_dict(fila: dict) -> dict:
     return {
         "id": fila["funcion_id"],
         "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
+        "precio_entrada": PRECIO_ENTRADA_FIJO,
         "pelicula": {
             "id": fila["pelicula_id"],
             "titulo": fila["pelicula_titulo"],
@@ -49,14 +51,14 @@ def obtener_funciones() -> list:
 def obtener_funcion_por_id(funcion_id: int) -> dict:
     fila = repositorio.buscar_funcion_por_id(funcion_id)
     if not fila:
-        raise ValueError(f"No se encontró la función con ID {funcion_id}", 404)
-    return _funcion_a_dict(fila)
+        raise ValueError(f"No se encontró la función con ID {funcion_id}")
 
+    funcion_dict = _funcion_a_dict(fila)
+    funcion_dict["butacas_ocupadas"] = repositorio.obtener_butacas_ocupadas(funcion_id)
+    return funcion_dict
 
-# ---------- ABM de funciones ----------
 
 def _ahora():
-    """Hora actual de Argentina (UTC-3) sin zona horaria."""
     zona_argentina = timezone(timedelta(hours=-3))
     return datetime.now(zona_argentina).replace(tzinfo=None)
 
@@ -64,29 +66,25 @@ def _ahora():
 def _buscar_funcion_existente(funcion_id):
     fila = repositorio.buscar_funcion_por_id(funcion_id)
     if fila is None:
-        raise ValueError(f"No existe la función {funcion_id}", 404)
+        raise ValueError(f"No existe la función {funcion_id}")
     return fila
 
 
 def _buscar_pelicula_existente(id_pelicula):
     pelicula = peliculas_repository.buscar_por_id(id_pelicula)
     if pelicula is None:
-        raise ValueError(f"No existe la película {id_pelicula}", 404)
+        raise ValueError(f"No existe la película {id_pelicula}")
     return pelicula
 
 
 def _verificar_sala_existente(id_sala):
     if repositorio.buscar_sala_por_id(id_sala) is None:
-        raise ValueError(f"No existe la sala {id_sala}", 404)
+        raise ValueError(f"No existe la sala {id_sala}")
 
 
 def _verificar_fecha_futura(fecha_hora):
     if fecha_hora <= _ahora():
-        raise ValueError(
-            "La fecha y hora de la función tiene que ser posterior al momento actual",
-            400,
-            {"fecha_hora_proyeccion": datetime_a_string(fecha_hora)},
-        )
+        raise ValueError("La fecha y hora de la función tiene que ser posterior al momento actual")
 
 
 def _verificar_sin_superposicion(id_sala, inicio, duracion, funcion_a_ignorar=None):
@@ -110,17 +108,13 @@ def _verificar_sin_superposicion(id_sala, inicio, duracion, funcion_a_ignorar=No
             })
 
     if len(conflictos) > 0:
-        raise ValueError(
-            f"La sala ya está ocupada en ese horario (se consideran {minutos_de_limpieza} minutos de limpieza entre funciones)",
-            409,
-            {"funciones_superpuestas": conflictos},
-        )
+        raise ValueError("La sala ya está ocupada en ese horario (se consideran 15 minutos de limpieza entre funciones)")
 
 
 def programar_funcion(datos):
     funcion, errores = validador.validar_funcion_nueva(datos)
     if errores:
-        raise ValueError("Hay datos inválidos", 400, errores)
+        raise ValueError("Hay datos inválidos en la solicitud")
 
     pelicula = _buscar_pelicula_existente(funcion["id_pelicula"])
     _verificar_sala_existente(funcion["id_sala"])
@@ -144,18 +138,14 @@ def modificar_funcion(funcion_id, datos):
 
     cambios, errores = validador.validar_cambios_funcion(datos)
     if errores:
-        raise ValueError("Hay datos inválidos", 400, errores)
+        raise ValueError("Hay datos inválidos en la solicitud")
 
     if actual["fecha_hora_proyeccion"] <= _ahora():
-        raise ValueError("No se puede modificar una función que ya se proyectó", 409)
+        raise ValueError("No se puede modificar una función que ya se proyectó")
 
     entradas = repositorio.contar_entradas_de_funcion(funcion_id)
     if int(entradas["activas"]) > 0:
-        raise ValueError(
-            "No se puede modificar una función con entradas vendidas",
-            409,
-            {"entradas_vendidas": int(entradas["activas"])},
-        )
+        raise ValueError("No se puede modificar una función con entradas vendidas")
 
     id_pelicula = cambios.get("id_pelicula", actual["pelicula_id"])
     id_sala = cambios.get("id_sala", actual["sala_id"])
@@ -176,11 +166,7 @@ def dar_baja_funcion(funcion_id):
 
     entradas = repositorio.contar_entradas_de_funcion(funcion_id)
     if int(entradas["total"]) > 0:
-        raise ValueError(
-            "No se puede dar de baja una función que tiene entradas registradas",
-            409,
-            {"entradas_registradas": int(entradas["total"])},
-        )
+        raise ValueError("No se puede dar de baja una función que tiene entradas registradas")
 
     repositorio.eliminar_funcion(funcion_id)
     return {"id": funcion_id}

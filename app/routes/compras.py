@@ -32,19 +32,19 @@ def obtener_detalle_compra(compra_id: int):
     except Exception as e:
         return responder_error(message="Error al obtener el detalle de la compra", status_code=500)
 
-@compras_bp.route("/<int:entrada_id>/cancelar", methods=["PUT"])
+@compras_bp.route("/<int:compra_id>/cancelar", methods=["PUT"])
 @requiere_autenticacion
-def cancelar_compra(entrada_id: int):
+def endpoint_cancelar_compra(compra_id: int):
     try:
         id_usuario = request.usuario_actual.get("sub")
-        resultado = reserva_service.cancelar_entrada(entrada_id, id_usuario)
-        return responder_exito(data=resultado, message="Entrada cancelada exitosamente")
+        resultado = reserva_service.cancelar_compra(compra_id, id_usuario)
+        return responder_exito(data=resultado, message="Compra cancelada exitosamente")
     except ValueError as e:
         return responder_error(message=str(e), status_code=400)
     except PermissionError as e:
         return responder_error(message=str(e), status_code=403)
     except Exception as e:
-        return responder_error(message="Error al cancelar la entrada", status_code=500)
+        return responder_error(message="Error interno al cancelar la compra", status_code=500)
 
 @compras_bp.route("/validar-qr", methods=["POST"])
 @requiere_autenticacion

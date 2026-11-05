@@ -2,7 +2,7 @@ import hashlib
 import time
 from app.repositories import compras_repository
 from app.utils.qr import generar_codigo_qr
-from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR
+from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR, ESTADO_ENTRADA_CANCELADA
 
 def procesar_compra(datos: dict, id_usuario: int) -> dict:
     id_funcion = datos.get("id_funcion")
@@ -60,20 +60,33 @@ def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
     entrada["fecha_hora_proyeccion"] = str(entrada["fecha_hora_proyeccion"])
     return entrada
 
-def cancelar_entrada(entrada_id: int, id_usuario: int) -> dict:
-    entrada = compras_repository.obtener_entrada_por_id(entrada_id)
+def cancelar_compra(compra_id: int, id_usuario: int) -> dict:
+    datos_compra = compras_repository.obtener_datos_resumen_compra(compra_id)
 
-    if not entrada:
-        raise ValueError("La entrada no existe.")
+    if not datos_compra:
+        raise ValueError("La compra solicitada no existe.")
 
-    if entrada["id_usuario"] != id_usuario:
-        raise PermissionError("No tienes permiso para cancelar esta entrada.")
+    if datos_compra["id_usuario"] != id_usuario:
+        raise PermissionError("No tienes permiso para cancelar esta compra.")
 
-    if entrada["estado"] != "comprada":
-        raise ValueError("La entrada ya se encuentra utilizada o cancelada.")
+    #validación de la regla de las 2 horas
+    fecha_proyeccion = datos_compra["fecha_proyeccion"]
 
-    filas_afectadas = compras_repository.actualizar_estado_entrada(entrada_id, "cancelada")
+    #casteo por si la base de datos devuelve un string en vez de objeto datetime
+    if isinstance(fecha_proyeccion, str):
+        fecha_proyeccion = datetime.strptime(fecha_proyeccion, "%Y-%m-%d %H:%M:%S")
+
+    tiempo_restante = fecha_proyeccion - datetime.now()
+    if tiempo_restante < timedelta(hours=2):
+        raise ValueError("No se puede cancelar la compra. Faltan menos de 2 horas para la función.")
+
+    # cancelación logica de las butacas (libera los lugares conservando el hiistorial)
+    filas_afectadas = compras_repository.cancelar_entradas_por_compra(compra_id)
     if not filas_afectadas:
-        raise ValueError("Error al intentar cancelar la entrada.")
+        raise ValueError("La compra ya se encuentra utilizada, previamente cancelada, o no es válida.")
 
-    return {"id_entrada": entrada_id, "estado_actual": "cancelada"}
+    return {
+        "id_compra": compra_id,
+        "estado_actual": ESTADO_ENTRADA_CANCELADA,
+        "mensaje": "Compra y servicios adicionales cancelados exitosamente."
+    }

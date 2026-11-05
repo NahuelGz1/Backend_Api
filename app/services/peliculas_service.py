@@ -6,6 +6,31 @@ from app.utils.dates import datetime_a_string
 from app.validators import peliculas_validator as validador
 
 
+# autocompleta faltantes
+def _completar_datos_faltantes_con_tmdb(pelicula: dict):
+    if pelicula.get("poster") and pelicula.get("sinopsis"):
+        return
+
+    titulo = pelicula.get("titulo")
+    try:
+        resultados = tmdb.buscar_peliculas(titulo)
+
+        if resultados:
+            mejor = resultados[0]
+            nueva_sinopsis = mejor.get("sinopsis")
+            nuevo_poster = mejor.get("poster")
+
+            if nuevo_poster and not pelicula.get("poster"):
+                pelicula["poster"] = nuevo_poster
+            if nueva_sinopsis and not pelicula.get("sinopsis"):
+                pelicula["sinopsis"] = nueva_sinopsis
+
+            repositorio.actualizar_datos_tmdb(pelicula["id"], nueva_sinopsis, nuevo_poster)
+
+    except Exception:
+        pass
+
+
 # ----------- Películas propias --------------------------------------
 
 def _funcion_a_dict(fila: dict) -> dict:
@@ -46,6 +71,9 @@ def obtener_cartelera() -> list:
 
     resultado_final = []
     for pelicula in peliculas:
+        # revisa tmdb al vuelo
+        _completar_datos_faltantes_con_tmdb(pelicula)
+
         id_pelicula = pelicula["id"]
         funciones_de_esta_pelicula = funciones_por_pelicula.get(id_pelicula, [])
         resultado_final.append(_pelicula_a_dict(pelicula, funciones_de_esta_pelicula))
@@ -58,6 +86,9 @@ def obtener_pelicula(pelicula_id: int) -> dict:
     pelicula = repositorio.buscar_por_id(pelicula_id)
     if pelicula is None:
         raise ValueError(f"No existe la película {pelicula_id}", 404)
+
+    # revisa tmdb al vuelo
+    _completar_datos_faltantes_con_tmdb(pelicula)
 
     filas = repositorio.listar_funciones_vigentes_de_pelicula(pelicula_id)
     lista_funciones = [_funcion_a_dict(fila) for fila in filas]

@@ -89,3 +89,13 @@ def insertar(pelicula: dict) -> int:
         pelicula["genero"],
     )
     return ejecutar_mutacion(sql, parametros)
+
+# guarda tmdb
+def actualizar_datos_tmdb(pelicula_id: int, sinopsis: str | None, poster: str | None) -> int:
+    sql = """
+          UPDATE peliculas
+          SET sinopsis = COALESCE(%s, sinopsis),
+              poster = COALESCE(%s, poster)
+          WHERE id = %s
+          """
+    return ejecutar_mutacion(sql, (sinopsis, poster, pelicula_id))

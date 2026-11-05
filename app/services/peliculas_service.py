@@ -1,24 +1,24 @@
 """Lógica de películas: cartelera, detalle, alta y búsqueda en TMDB."""
 
 from app.repositories import peliculas_repository as repositorio
-from app.validators import peliculas_validator as validador
 from app.utils import tmdb
+from app.utils.dates import datetime_a_string
+from app.validators import peliculas_validator as validador
 
 
-# -----------Películas propias (las que están en nuestra propia base de datos)--------------------------------------
+# ----------- Películas propias --------------------------------------
 
-def _funcion_a_dict(fila):
+def _funcion_a_dict(fila: dict) -> dict:
     return {
         "id": fila["id"],
-        # isoformat() se encarga de pasar el objeto fecha de Python a texto plano con formato estándar (ej: "2026-12-04T16:00:00") para que el front lo lea bien
-        "fecha_hora_proyeccion": fila["fecha_hora_proyeccion"].isoformat(),
+        "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
         "sala": fila["sala"],
         "local": fila["local"],
         "capacidad": fila["capacidad"],
     }
 
 
-def _pelicula_a_dict(fila, funciones):
+def _pelicula_a_dict(fila: dict, funciones: list) -> dict:
     return {
         "id": fila["id"],
         "titulo": fila["titulo"],
@@ -31,75 +31,63 @@ def _pelicula_a_dict(fila, funciones):
     }
 
 
-def obtener_cartelera():
+def obtener_cartelera() -> list:
     """Películas que tienen funciones vigentes, cada una con sus funciones."""
     peliculas = repositorio.listar_peliculas_en_cartelera()
     funciones_vigentes = repositorio.listar_funciones_vigentes()
 
-    # Agrupamos las funciones por película
     funciones_por_pelicula = {}
     for fila in funciones_vigentes:
         id_pelicula = fila["id_pelicula"]
         if id_pelicula not in funciones_por_pelicula:
             funciones_por_pelicula[id_pelicula] = []
 
-        funcion_dict = _funcion_a_dict(fila)
-        funciones_por_pelicula[id_pelicula].append(funcion_dict)
+        funciones_por_pelicula[id_pelicula].append(_funcion_a_dict(fila))
 
-    # Armamos la lista final
     resultado_final = []
     for pelicula in peliculas:
         id_pelicula = pelicula["id"]
-
-        # Buscamos si tiene funciones, sino dejamos una lista vacía
-        funciones_de_esta_pelicula = []
-        if id_pelicula in funciones_por_pelicula:
-            funciones_de_esta_pelicula = funciones_por_pelicula[id_pelicula]
-
-        pelicula_dict = _pelicula_a_dict(pelicula, funciones_de_esta_pelicula)
-        resultado_final.append(pelicula_dict)
+        funciones_de_esta_pelicula = funciones_por_pelicula.get(id_pelicula, [])
+        resultado_final.append(_pelicula_a_dict(pelicula, funciones_de_esta_pelicula))
 
     return resultado_final
 
 
-def obtener_pelicula(pelicula_id):
-    """Una película con sus funciones vigentes. Devuelve (pelicula, error)."""
+def obtener_pelicula(pelicula_id: int) -> dict:
+    """Una película con sus funciones vigentes. Lanza ValueError 404 si no existe."""
     pelicula = repositorio.buscar_por_id(pelicula_id)
     if pelicula is None:
-        return None, {"mensaje": f"No existe la película {pelicula_id}", "codigo": 404}
+        raise ValueError(f"No existe la película {pelicula_id}", 404)
 
     filas = repositorio.listar_funciones_vigentes_de_pelicula(pelicula_id)
+    lista_funciones = [_funcion_a_dict(fila) for fila in filas]
 
-    # Convertimos las filas de funciones
-    lista_funciones = []
-    for fila in filas:
-        funcion_dict = _funcion_a_dict(fila)
-        lista_funciones.append(funcion_dict)
-
-    pelicula_dict = _pelicula_a_dict(pelicula, lista_funciones)
-    return pelicula_dict, None
+    return _pelicula_a_dict(pelicula, lista_funciones)
 
 
-def crear_pelicula(datos):
+def crear_pelicula(datos: dict) -> dict:
     """Valida los datos, guarda la película y la devuelve ya creada."""
     pelicula, errores = validador.validar_pelicula(datos)
     if errores:
-        return None, {"mensaje": "Hay datos inválidos", "codigo": 400, "detalles": errores}
+        raise ValueError("Hay datos inválidos", 400, errores)
 
-    # Dos películas con el mismo título y la misma duración las tomamos como la misma
     if repositorio.existe_pelicula(pelicula["titulo"], pelicula["duracion"]):
-        return None, {"mensaje": "Ya existe una película con ese título y esa duración", "codigo": 409}
+        raise ValueError("Ya existe una película con ese título y esa duración", 409)
 
     nuevo_id = repositorio.insertar(pelicula)
-    return obtener_pelicula(nuevo_id)
+
+    # Retornamos directamente el objeto creado sin consultar funciones innecesariamente
+    pelicula["id"] = nuevo_id
+    pelicula["funciones"] = []
+    return pelicula
 
 
 # ------- Búsqueda en TMDB (API externa) ---------------------------
 
-def buscar_peliculas_en_tmdb(titulo):
-    """Valida el título y le pide la búsqueda a utils/tmdb.py. Devuelve (lista, error)."""
-    titulo, errores = validador.validar_titulo_busqueda(titulo)
+def buscar_peliculas_en_tmdb(titulo: str) -> list:
+    """Valida el título y realiza la búsqueda en TMDB."""
+    titulo_validado, errores = validador.validar_titulo_busqueda(titulo)
     if errores:
-        return None, {"mensaje": "Hay datos inválidos", "codigo": 400, "detalles": errores}
+        raise ValueError("Hay datos inválidos", 400, errores)
 
-    return tmdb.buscar_peliculas(titulo)
+    return tmdb.buscar_peliculas(titulo_validado)

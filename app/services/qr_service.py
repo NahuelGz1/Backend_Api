@@ -1,31 +1,26 @@
-def validar_codigo_qr_recibido(codigo_qr):
-    """
-    Comprueba que se haya recibido un código QR
-    con contenido válido.
-    """
+from app.repositories import compras_repository
+from app.utils.constantes import ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_UTILIZADA
 
-    if not isinstance(codigo_qr, str):
-        raise ValueError("El código QR debe ser una cadena de texto")
+def validar_acceso(codigo_qr: str) -> dict:
+    if not codigo_qr:
+        raise ValueError("El código QR no puede estar vacío.")
 
-    if codigo_qr.strip() == "":
-        raise ValueError("No se recibió un código QR válido")
+    entrada = compras_repository.obtener_entrada_por_qr(codigo_qr)
 
-    return codigo_qr.strip()
+    if not entrada:
+        raise ValueError("El código QR presentado no es válido o no existe.")
 
+    if entrada["estado"] == ESTADO_ENTRADA_UTILIZADA:
+        raise ValueError("Esta entrada ya fue ingresada previamente.")
 
-def validar_estado_entrada(estado):
-    """
-    Comprueba si una entrada está en condiciones
-    de utilizarse para ingresar al cine.
-    """
+    if entrada["estado"] != ESTADO_ENTRADA_COMPRADA:
+        raise ValueError(f"La entrada no está activa para ingreso (estado: {entrada['estado']}).")
 
-    if estado == "cancelada":
-        raise ValueError("La entrada fue cancelada")
+    compras_repository.actualizar_estado_entrada(entrada["id_entrada"], ESTADO_ENTRADA_UTILIZADA)
 
-    if estado == "utilizada":
-        raise ValueError("La entrada ya fue utilizada")
-
-    if estado != "comprada":
-        raise ValueError("El estado de la entrada no es válido")
-
-    return True
+    return {
+        "id_entrada": entrada["id_entrada"],
+        "pelicula": entrada.get("pelicula"),
+        "numero_butaca": entrada.get("numero_butaca"),
+        "estado_nuevo": ESTADO_ENTRADA_UTILIZADA
+    }

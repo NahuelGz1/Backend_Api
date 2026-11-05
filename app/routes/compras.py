@@ -62,3 +62,20 @@ def validar_qr_compra():
         return responder_error(message=str(e), status_code=400)
     except Exception as e:
         return responder_error(message="Error al validar el código QR", status_code=500)
+
+@compras_bp.route("/validar-servicio", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
+def validar_servicio_compra():
+    try:
+        datos = request.get_json(silent=True) or {}
+        id_detalle = datos.get("id_detalle")
+        if not id_detalle:
+            return responder_error(message="El campo 'id_detalle' es obligatorio", status_code=400)
+
+        resultado = qr_service.validar_servicio_adicional(id_detalle)
+        return responder_exito(data=resultado, message="Servicio adicional canjeado exitosamente")
+    except ValueError as e:
+        return responder_error(message=str(e), status_code=400)
+    except Exception as e:
+        return responder_error(message="Error al validar el servicio adicional", status_code=500)

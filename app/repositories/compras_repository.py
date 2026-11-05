@@ -74,3 +74,18 @@ def verificar_butaca_ocupada(id_funcion: int, numero_butaca: str) -> bool:
           """
     resultado = ejecutar_consulta(sql, (id_funcion, numero_butaca, ESTADO_ENTRADA_CANCELADA))
     return len(resultado) > 0
+
+def obtener_servicios_por_compra(id_compra: int) -> list:
+    sql = """
+          SELECT ds.id AS id_detalle, s.nombre, ds.cantidad, ds.usado
+          FROM detalles_servicios ds
+                   JOIN servicios s ON ds.id_servicio = s.id
+          WHERE ds.id_compra = %s \
+          """
+    return ejecutar_consulta(sql, (id_compra,))
+
+
+def marcar_servicio_usado(id_detalle: int) -> bool:
+    sql = "UPDATE detalles_servicios SET usado = TRUE WHERE id = %s AND usado = FALSE"
+    filas_afectadas = ejecutar_comando(sql, (id_detalle,))
+    return filas_afectadas > 0

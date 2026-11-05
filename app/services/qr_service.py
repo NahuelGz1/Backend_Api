@@ -18,9 +18,22 @@ def validar_acceso(codigo_qr: str) -> dict:
 
     compras_repository.actualizar_estado_entrada(entrada["id_entrada"], ESTADO_ENTRADA_UTILIZADA)
 
+    #obtenemos los servicios asociados a la misma compra
+    servicios_asociados = compras_repository.obtener_servicios_por_compra(entrada["id_compra"])
+
     return {
         "id_entrada": entrada["id_entrada"],
+        "id_compra": entrada["id_compra"],
         "pelicula": entrada.get("pelicula"),
         "numero_butaca": entrada.get("numero_butaca"),
-        "estado_nuevo": ESTADO_ENTRADA_UTILIZADA
+        "estado_nuevo": ESTADO_ENTRADA_UTILIZADA,
+        "servicios_adicionales": servicios_asociados
     }
+
+
+def validar_servicio_adicional(id_detalle: int) -> dict:
+    exito = compras_repository.marcar_servicio_usado(id_detalle)
+    if not exito:
+        raise ValueError("El servicio adicional no existe o ya fue utilizado previamente.")
+
+    return {"id_detalle": id_detalle, "estado": "utilizado"}

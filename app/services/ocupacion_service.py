@@ -3,6 +3,8 @@ from app.repositories.dashboard_repository import (
     obtener_metricas_ocupacion_por_funcion,
     obtener_metricas_ocupacion_por_pelicula,
     obtener_resumen_general_ocupacion,
+    obtener_ventas_por_genero,
+    obtener_ventas_por_franja_horaria
 )
 from app.utils.dates import datetime_a_string
 
@@ -11,6 +13,9 @@ def calcular_reporte_ocupacion() -> dict:
     peliculas_db = obtener_metricas_ocupacion_por_pelicula()
     funciones_db = obtener_metricas_ocupacion_por_funcion()
     resumen_db = obtener_resumen_general_ocupacion()
+
+    generos_db = obtener_ventas_por_genero()
+    franjas_db = obtener_ventas_por_franja_horaria()
 
     #detalle por película con cálculo de porcentaje
     peliculas_ocupacion = []
@@ -55,16 +60,16 @@ def calcular_reporte_ocupacion() -> dict:
             "porcentaje_ocupacion": porcentaje,
         })
 
-    # estructura unificada lista para gráficos de barra y torta
+    #estructura unificada lista para gráficos
     return {
         "resumen_general": {
-            "total_entradas_activas": int(resumen_db["total_vendidas"] or 0),
-            "total_entradas_canceladas": int(resumen_db["total_canceladas"] or 0),
+            "total_entradas_activas": int(resumen_db.get("total_vendidas", 0)),
+            "total_entradas_canceladas": int(resumen_db.get("total_canceladas", 0)),
             "grafico_torta_estados": {
                 "labels": ["Vendidas / Utilizadas", "Canceladas"],
                 "data": [
-                    int(resumen_db["total_vendidas"] or 0),
-                    int(resumen_db["total_canceladas"] or 0),
+                    int(resumen_db.get("total_vendidas", 0)),
+                    int(resumen_db.get("total_canceladas", 0)),
                 ],
             },
         },
@@ -76,6 +81,14 @@ def calcular_reporte_ocupacion() -> dict:
                     "data": data_ocupacion_porcentaje,
                 }
             ],
+        },
+        "grafico_torta_generos": {
+            "labels": [fila["genero"] for fila in generos_db],
+            "data": [fila["total_entradas"] for fila in generos_db]
+        },
+        "grafico_barras_horarios": {
+            "labels": [f"{fila['hora']}:00" for fila in franjas_db],
+            "data": [fila["total_entradas"] for fila in franjas_db]
         },
         "detalle_peliculas": peliculas_ocupacion,
         "detalle_funciones": funciones_ocupacion,

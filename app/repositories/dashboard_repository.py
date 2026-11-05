@@ -72,3 +72,38 @@ def obtener_resumen_general_ocupacion() -> dict:
         "total_canceladas": 0,
         "total_generadas": 0,
     }
+
+
+def obtener_ventas_por_genero() -> list[dict]:
+    """
+    Calcula las entradas vendidas agrupadas por género cinematográfico.
+    """
+    query = """
+            SELECT
+                p.genero,
+                COUNT(e.id) AS total_entradas
+            FROM entradas e
+                     INNER JOIN funciones f ON e.id_funcion = f.id
+                     INNER JOIN peliculas p ON f.id_pelicula = p.id
+            WHERE e.estado IN ('comprada', 'utilizada')
+            GROUP BY p.genero
+            ORDER BY total_entradas DESC
+            """
+    return ejecutar_consulta(query)
+
+
+def obtener_ventas_por_franja_horaria() -> list[dict]:
+    """
+    Calcula las entradas vendidas agrupadas por la hora de la función.
+    """
+    query = """
+            SELECT
+                HOUR(f.fecha_hora_proyeccion) AS hora,
+                COUNT(e.id) AS total_entradas
+            FROM entradas e
+                INNER JOIN funciones f ON e.id_funcion = f.id
+            WHERE e.estado IN ('comprada', 'utilizada')
+            GROUP BY HOUR(f.fecha_hora_proyeccion)
+            ORDER BY hora ASC
+            """
+    return ejecutar_consulta(query)

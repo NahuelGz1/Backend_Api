@@ -3,9 +3,14 @@
 import os
 import requests
 
+# URLs base de la API externa de TMDB (configurables vía variables de entorno)
+TMDB_BASE_URL = os.getenv("TMDB_BASE_URL", "https://api.themoviedb.org/3")
+TMDB_IMAGE_BASE_URL = os.getenv("TMDB_IMAGE_BASE_URL", "https://image.tmdb.org/t/p/w500")
+
+
 def _pedir_a_tmdb(ruta, api_key, parametros=None):
     """Hace un GET a TMDB. Lanza excepción si falla."""
-    url_base = "https://api.themoviedb.org/3"
+    url_base = TMDB_BASE_URL
     idioma = "es-AR"
     segundos_de_espera = 5
 
@@ -54,7 +59,7 @@ def _formatear_resultado_tmdb(resultado, nombres_de_generos):
 
     poster_url = None
     if ruta_poster:
-        poster_url = f"https://image.tmdb.org/t/p/w500{ruta_poster}"
+        poster_url = f"{TMDB_IMAGE_BASE_URL}{ruta_poster}"
 
     return {
         "tmdb_id": resultado.get("id"),

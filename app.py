@@ -17,7 +17,9 @@ from app.routes.dashboard import dashboard_bp
 from app.routes.funciones import funciones_bp
 from app.routes.peliculas import peliculas_bp
 from app.routes.servicios import servicios_bp
+from app.routes.salas import salas_bp
 
+app.register_blueprint(salas_bp, url_prefix=f"{base_url}/funciones/salas")
 app.register_blueprint(auth_bp, url_prefix=f"{base_url}/auth")
 app.register_blueprint(butacas_bp, url_prefix=f"{base_url}/butacas")
 app.register_blueprint(compras_bp, url_prefix=f"{base_url}/compras")

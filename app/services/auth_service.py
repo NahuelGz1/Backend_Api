@@ -6,12 +6,21 @@ from app.repositories.auth_repository import (
     obtener_usuario_por_id,
     actualizar_password_hash,
     obtener_password_hash_por_id,
+    obtener_credenciales_por_id,
+    restablecer_password,
 )
+import hmac
+from flask import current_app
+from itsdangerous import BadData, URLSafeTimedSerializer
+from app.services.email_service import enviar_recuperacion
+from app.validators.auth_validator import validar_email, validar_nombre, validar_password
 from app.utils.dates import datetime_a_string
 from app.utils.security import (
     generar_token_acceso,
     hashear_contraseña,
     verificar_contraseña,
+    clave_secreta,
+    version_credencial,
 )
 
 
@@ -20,11 +29,14 @@ def registrar_usuario(nombre: str, email: str, password: str, rol: str = "client
     Registra un nuevo usuario cifrando su contraseña.
     Lanza ValueError si el email ya existe.
     """
+    nombre = validar_nombre(nombre)
+    email = validar_email(email)
+    password = validar_password(password)
     if buscar_por_email(email):
-        raise ValueError("El correo electrónico ya se encuentra registrado.")
+        raise ValueError("El correo electrónico ya se encuentra registrado.", 409)
 
     password_hash = hashear_contraseña(password)
-    resultado = crear_usuario(nombre=nombre, email=email, password_hash=password_hash, rol=rol)
+    resultado = crear_usuario(nombre=nombre, email=email, password_hash=password_hash, rol="cliente")
 
     if isinstance(resultado, dict) and "error" in resultado:
         raise ValueError(resultado["error"])
@@ -37,13 +49,18 @@ def autenticar_usuario(email: str, password: str) -> dict:
     Valida las credenciales del usuario y genera un token JWT de sesión.
     Lanza ValueError(msg, 401) si las credenciales son inválidas.
     """
+    email = validar_email(email)
+    if not isinstance(password, str) or not 1 <= len(password) <= 128:
+        raise ValueError("Ingresá una contraseña válida", 400)
     usuario = buscar_por_email(email)
 
     if not usuario or not verificar_contraseña(password, usuario.get("password_hash", "")):
         raise ValueError("Credenciales inválidas", 401)
 
-    rol_usuario = usuario.get("rol", "cliente")
-    token = generar_token_acceso(usuario["id"], rol_usuario)
+    rol_usuario = usuario["rol"]
+    if rol_usuario not in ("cliente", "administrador"):
+        raise ValueError("El rol de la cuenta no tiene acceso al sistema", 403)
+    token = generar_token_acceso(usuario["id"], rol_usuario, usuario["password_hash"])
 
     return {
         "token": token,
@@ -54,6 +71,36 @@ def autenticar_usuario(email: str, password: str) -> dict:
             "rol": rol_usuario,
         },
     }
+
+
+def solicitar_recuperacion(email):
+    email = validar_email(email)
+    usuario = buscar_por_email(email)
+    if usuario:
+        token = URLSafeTimedSerializer(clave_secreta(), salt="recuperacion-password").dumps({
+            "id": usuario["id"], "ver": version_credencial(usuario["password_hash"]),
+        })
+        enviar_recuperacion(email, token)
+
+
+def recuperar_password(token, password):
+    password = validar_password(password)
+    if not isinstance(token, str) or not token or len(token) > 2048:
+        raise ValueError("El enlace es inválido o venció", 400)
+    try:
+        datos = URLSafeTimedSerializer(clave_secreta(), salt="recuperacion-password").loads(
+            token, max_age=current_app.config["PASSWORD_RESET_MAX_AGE"],
+        )
+    except BadData as error:
+        raise ValueError("El enlace es inválido o venció", 400) from error
+    if not isinstance(datos, dict) or not isinstance(datos.get("ver"), str) or not isinstance(datos.get("id"), int):
+        raise ValueError("El enlace es inválido o venció", 400)
+    usuario = obtener_credenciales_por_id(datos["id"])
+    if not usuario or not hmac.compare_digest(datos["ver"], version_credencial(usuario["password_hash"])):
+        raise ValueError("El enlace es inválido o venció", 400)
+    filas = restablecer_password(usuario["id"], usuario["password_hash"], hashear_contraseña(password))
+    if filas != 1:
+        raise ValueError("El enlace ya no es válido. Solicitá uno nuevo", 400)
 
 
 def consultar_perfil_usuario(id_usuario: int) -> dict:

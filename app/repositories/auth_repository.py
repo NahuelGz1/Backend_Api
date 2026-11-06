@@ -1,4 +1,20 @@
 from app.db import ejecutar_consulta, ejecutar_mutacion
+from pymysql.err import IntegrityError
+
+
+def obtener_credenciales_por_id(id_usuario):
+    filas = ejecutar_consulta(
+        "SELECT id, nombre, email, password_hash, rol FROM usuarios WHERE id = %s",
+        (id_usuario,),
+    )
+    return filas[0] if filas else None
+
+
+def restablecer_password(id_usuario, hash_anterior, nuevo_hash):
+    return ejecutar_mutacion(
+        "UPDATE usuarios SET password_hash = %s WHERE id = %s AND password_hash = %s",
+        (nuevo_hash, id_usuario, hash_anterior),
+    )
 
 
 def obtener_usuario_por_id(id_usuario: int) -> dict | None:
@@ -53,7 +69,12 @@ def crear_usuario(nombre: str, email: str, password_hash: str, rol: str = "clien
           INSERT INTO usuarios (nombre, email, password_hash, rol)
           VALUES (%s, %s, %s, %s) \
           """
-    nuevo_id = ejecutar_mutacion(sql, (nombre, email, password_hash, rol))
+    try:
+        nuevo_id = ejecutar_mutacion(sql, (nombre, email, password_hash, rol))
+    except IntegrityError as error:
+        if error.args[0] == 1062:
+            raise ValueError("El correo electrónico ya se encuentra registrado.", 409) from error
+        raise
 
     return {
         "id": nuevo_id,

@@ -1,33 +1,38 @@
-import os
+import hmac
 from functools import wraps
 from flask import request
+import jwt
+from app.repositories.auth_repository import obtener_credenciales_por_id
+from app.utils.security import clave_secreta, version_credencial
 from app.utils.response import responder_error
 from app.utils.constantes import ROL_ADMINISTRADOR
-
-try:
-    import jwt
-except ImportError:
-    jwt = None
-
-CLAVE_SECRETA = os.getenv("JWT_SECRET_KEY", "clave_secreta_cine_paradiso")
-
 
 def requiere_autenticacion(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization")
-        if not auth_header:
+        if not auth_header or not auth_header.startswith("Bearer "):
             return responder_error(code=401, message="Token de autenticación faltante")
 
         try:
-            token = auth_header.split(" ")[1] if auth_header.startswith("Bearer ") else auth_header
-            datos_usuario = jwt.decode(token, CLAVE_SECRETA, algorithms=["HS256"])
-            request.usuario_actual = datos_usuario
+            token = auth_header[7:]
+            datos_usuario = jwt.decode(
+                token, clave_secreta(), algorithms=["HS256"],
+                options={"require": ["sub", "exp", "ver"]},
+            )
         except jwt.ExpiredSignatureError:
             return responder_error(code=401, message="El token ha expirado")
-        except (jwt.InvalidTokenError, Exception):
+        except jwt.InvalidTokenError:
             return responder_error(code=401, message="Token inválido")
 
+        usuario = obtener_credenciales_por_id(datos_usuario["sub"])
+        version = datos_usuario.get("ver")
+        if not usuario or not isinstance(version, str) or not hmac.compare_digest(
+            version, version_credencial(usuario["password_hash"])
+        ):
+            return responder_error(code=401, message="La sesión ya no es válida")
+        datos_usuario["rol"] = usuario["rol"]
+        request.usuario_actual = datos_usuario
         return f(*args, **kwargs)
 
     return decorated

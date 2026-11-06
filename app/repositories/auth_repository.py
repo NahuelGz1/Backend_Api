@@ -23,6 +23,30 @@ def buscar_por_email(email: str) -> dict | None:
     return resultados[0] if resultados else None
 
 
+def obtener_password_hash_por_id(id_usuario: int) -> str | None:
+    """Obtiene la contraseña cifrada de un usuario mediante su ID. Devuelve None si el usuario no existe."""
+    sql = """
+        SELECT password_hash
+        FROM usuarios
+        WHERE id = %s
+    """
+
+    resultados = ejecutar_consulta(sql, (id_usuario,))
+
+    return resultados[0]["password_hash"] if resultados else None
+
+
+def actualizar_password_hash(id_usuario: int, nuevo_hash: str) -> int:
+    """Actualiza la contraseña cifrada de un usuario. Devuelve el resultado de la operación en la base de datos."""
+    sql = """
+        UPDATE usuarios
+        SET password_hash = %s
+        WHERE id = %s
+    """
+
+    return ejecutar_mutacion(sql, (nuevo_hash, id_usuario))
+
+
 def crear_usuario(nombre: str, email: str, password_hash: str, rol: str = "cliente") -> dict:
     """Inserta un nuevo usuario en la base de datos utilizando el helper centralizado."""
     sql = """

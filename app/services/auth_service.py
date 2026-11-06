@@ -4,6 +4,8 @@ from app.repositories.auth_repository import (
     obtener_historial_entradas_por_usuario,
     obtener_historial_servicios_por_usuario,
     obtener_usuario_por_id,
+    actualizar_password_hash,
+    obtener_password_hash_por_id,
 )
 from app.utils.dates import datetime_a_string
 from app.utils.security import (
@@ -168,3 +170,32 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         "consumos_candy": consumos_candy,
         "consumos_candy_total": f"{total_candy:,.0f}",
     }
+
+def cambiar_contrasena_usuario(id_usuario: int, contrasena_actual: str, contrasena_nueva: str) -> None:
+    """Cambia la contraseña de un usuario autenticado. Verifica la contraseña actual y guarda el hash de la nueva contraseña en la base de datos."""
+
+    if not isinstance(contrasena_actual, str) or not contrasena_actual:
+        raise ValueError("Debe ingresar su contraseña actual", 400)
+
+    if not isinstance(contrasena_nueva, str) or not contrasena_nueva:
+        raise ValueError("Debe ingresar una contraseña nueva", 400)
+    if contrasena_actual == contrasena_nueva:
+        raise ValueError(
+            "La nueva contraseña debe ser diferente de la actual",
+            400
+        )
+
+    hash_actual = obtener_password_hash_por_id(id_usuario)
+
+    if hash_actual is None:
+        raise ValueError("Usuario no encontrado", 404)
+
+    if not verificar_contraseña(contrasena_actual, hash_actual):
+        raise ValueError("La contraseña actual es incorrecta", 400)
+
+    nuevo_hash = hashear_contraseña(contrasena_nueva)
+
+    filas_actualizadas = actualizar_password_hash(id_usuario, nuevo_hash)
+
+    if filas_actualizadas != 1:
+        raise ValueError("No se pudo actualizar la contraseña", 500)

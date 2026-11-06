@@ -58,4 +58,26 @@ def obtener_perfil_completo_usuario():
         data=perfil_data, 
         message="Perfil completo obtenido con éxito", 
         status_code=200
+@auth_bp.route("/usuarios/me/password", methods=["PATCH"])
+@requiere_autenticacion
+def cambiar_contrasena():
+    """
+    Permite que un usuario autenticado cambie su contraseña.
+    """
+    datos = request.get_json(silent=True)
+
+    if not isinstance(datos, dict):
+        raise ValueError("Debe enviar un objeto JSON válido", 400)
+
+    id_usuario = request.usuario_actual.get("sub")
+
+    auth_service.cambiar_contrasena_usuario(
+        id_usuario,
+        datos.get("contrasena_actual"),
+        datos.get("contrasena_nueva")
+    )
+
+    return responder_exito(
+        data=None,
+        message="Contraseña actualizada correctamente"
     )

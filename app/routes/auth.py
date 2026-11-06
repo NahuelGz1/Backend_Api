@@ -49,6 +49,15 @@ def obtener_historial_usuario():
     return responder_exito(data=historial, message="Historial obtenido con éxito", status_code=200)
 
 
+@auth_bp.route("/usuarios/me/perfil-completo", methods=["GET"])
+@requiere_autenticacion
+def obtener_perfil_completo_usuario():
+    id_usuario = request.usuario_actual.get("sub")
+    perfil_data = auth_service.consultar_perfil_completo_usuario(id_usuario)
+    return responder_exito(
+        data=perfil_data, 
+        message="Perfil completo obtenido con éxito", 
+        status_code=200
 @auth_bp.route("/usuarios/me/password", methods=["PATCH"])
 @requiere_autenticacion
 def cambiar_contrasena():

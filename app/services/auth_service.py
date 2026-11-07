@@ -13,7 +13,7 @@ from app.utils.security import (
     hashear_contraseña,
     verificar_contraseña,
 )
-
+from datetime import datetime
 
 def registrar_usuario(nombre: str, email: str, password: str, rol: str = "cliente") -> dict:
     """
@@ -110,6 +110,66 @@ def consultar_historial_completo_usuario(id_usuario: int) -> dict:
         "servicios": lista_servicios,
     }
 
+def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
+    """
+    Retorna los datos del perfil formateados específicamente para el frontend (mi_perfil.html).
+    """
+    entradas_bd = obtener_historial_entradas_por_usuario(id_usuario)
+    servicios_bd = obtener_historial_servicios_por_usuario(id_usuario)
+
+    entradas_proximas = []
+    peliculas_vistas = []
+    ahora = datetime.now()
+
+    for fila in entradas_bd:
+        fecha_obj = fila["fecha_hora_proyeccion"]
+
+        item = {
+            "pelicula": {
+                "titulo": fila["pelicula_titulo"],
+                "poster_url": fila["pelicula_poster"],
+            },
+            "fecha": fecha_obj.strftime("%Y-%m-%d") if isinstance(fecha_obj, datetime) else str(fecha_obj).split(" ")[0],
+            "horario": fecha_obj.strftime("%H:%M") if isinstance(fecha_obj, datetime) else str(fecha_obj).split(" ")[1][:5],
+            "complejo": fila["cine_local"],
+            "sala": fila["sala_nombre"],
+            "butacas": fila["numero_butaca"],
+            "cantidad_entradas": 1,
+            "subtotal_entradas": "-",
+            "subtotal_servicios": "-",
+            "total": "-",
+            "codigo_operacion": fila["id_entrada"],
+        }
+
+        if isinstance(fecha_obj, datetime) and fecha_obj >= ahora and fila["estado"] != "usada":
+            entradas_proximas.append(item)
+        else:
+            peliculas_vistas.append(item)
+
+    consumos_candy = []
+    total_candy = 0.0
+
+    for fila in servicios_bd:
+        precio = float(fila["precio"]) if fila["precio"] is not None else 0.0
+        total_candy += precio
+        
+        fecha_compra = fila["fecha_hora_compra"]
+        fecha_str = fecha_compra.strftime("%Y-%m-%d") if isinstance(fecha_compra, datetime) else str(fecha_compra).split(" ")[0]
+
+        consumos_candy.append({
+            "nombre": fila["servicio_nombre"],
+            "cantidad": 1,
+            "precio_unitario": f"{precio:,.0f}",
+            "fecha": fecha_str,
+            "codigo_pedido": fila["id_compra_servicio"],
+        })
+
+    return {
+        "entradas_proximas": entradas_proximas,
+        "peliculas_vistas": peliculas_vistas,
+        "consumos_candy": consumos_candy,
+        "consumos_candy_total": f"{total_candy:,.0f}",
+    }
 
 def cambiar_contrasena_usuario(id_usuario: int, contrasena_actual: str, contrasena_nueva: str) -> None:
     """Cambia la contraseña de un usuario autenticado. Verifica la contraseña actual y guarda el hash de la nueva contraseña en la base de datos."""

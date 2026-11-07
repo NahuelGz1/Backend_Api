@@ -16,7 +16,9 @@ def mock_url_for(endpoint: str, **kwargs) -> str:
     rutas = {
         "auth_views.iniciar_sesion": f"{frontend_url}/auth/iniciar-sesion",
         "auth_views.recuperar_contrasena": f"{frontend_url}/auth/recuperar-contrasena",
+        "auth_views.restablecer_contrasena": f"{frontend_url}/auth/restablecer-contrasena",
         "cliente_views.cartelera": f"{frontend_url}/cartelera",
+        "cliente_views.mi_perfil": f"{frontend_url}/mi-perfil",
     }
 
     return rutas.get(endpoint, f"{frontend_url}/{endpoint.replace('.', '/')}")
@@ -33,7 +35,7 @@ def _obtener_jinja_env() -> Environment:
 
 
 def renderizar_plantilla(nombre_plantilla: str, **contexto) -> str:
-    # Busca la plantilla HTML, le pasa las variables y arma el HTML listo para mandar
+    # Busca la plantilla HTML, le pasa las variables y arma el HTML para mandar
     env = _obtener_jinja_env()
     plantilla = env.get_template(nombre_plantilla)
     return plantilla.render(**contexto)
@@ -82,4 +84,35 @@ def enviar_correo_cuenta_creada(destinatario: str, nombre_usuario: str) -> bool:
         email=destinatario
     )
 
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)
+
+
+def enviar_correo_recuperacion(destinatario: str, token_recuperacion: str, nombre_usuario: str = "") -> bool:
+    # Arma y envia el correo con el link o token para recuperar la contraseña
+    asunto = "🔐 Recuperación de contraseña - Cine Paradiso"
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    url_reset = f"{frontend_url}/auth/restablecer-contrasena?token={token_recuperacion}"
+
+    contexto = {
+        "email": destinatario,
+        "token": token_recuperacion,
+        "url_reset": url_reset,
+    }
+    if nombre_usuario:
+        contexto["nombre"] = nombre_usuario
+
+    cuerpo_html = renderizar_plantilla("correo-recuperacion.html", **contexto)
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)
+
+
+def enviar_correo_compra(destinatario: str, detalles_compra: dict = None) -> bool:
+    # Arma y envia el comprobante de compra de entradas con los detalles
+    asunto = "🎟️ ¡Confirmación de compra - Cine Paradiso!"
+
+    detalles = detalles_compra.copy() if detalles_compra else {}
+    if "email" not in detalles:
+        detalles["email"] = destinatario
+
+    cuerpo_html = renderizar_plantilla("correo-compra.html", **detalles)
     return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)

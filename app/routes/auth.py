@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from app.services import auth_service
 from app.utils.decorators import requiere_autenticacion
-from app.utils.response import responder_exito
+from app.utils.response import responder_exito, responder_error
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -55,9 +55,12 @@ def obtener_perfil_completo_usuario():
     id_usuario = request.usuario_actual.get("sub")
     perfil_data = auth_service.consultar_perfil_completo_usuario(id_usuario)
     return responder_exito(
-        data=perfil_data, 
-        message="Perfil completo obtenido con éxito", 
+        data=perfil_data,
+        message="Perfil completo obtenido con éxito",
         status_code=200
+    )
+
+
 @auth_bp.route("/usuarios/me/password", methods=["PATCH"])
 @requiere_autenticacion
 def cambiar_contrasena():
@@ -66,18 +69,21 @@ def cambiar_contrasena():
     """
     datos = request.get_json(silent=True)
 
-    if not isinstance(datos, dict):
-        raise ValueError("Debe enviar un objeto JSON válido", 400)
+    try:
+        if not isinstance(datos, dict):
+            raise ValueError("Debe enviar un objeto JSON válido")
 
-    id_usuario = request.usuario_actual.get("sub")
+        id_usuario = request.usuario_actual.get("sub")
 
-    auth_service.cambiar_contrasena_usuario(
-        id_usuario,
-        datos.get("contrasena_actual"),
-        datos.get("contrasena_nueva")
-    )
+        auth_service.cambiar_contrasena_usuario(
+            id_usuario,
+            datos.get("contrasena_actual"),
+            datos.get("contrasena_nueva")
+        )
 
-    return responder_exito(
-        data=None,
-        message="Contraseña actualizada correctamente"
-    )
+        return responder_exito(
+            data=None,
+            message="Contraseña actualizada correctamente"
+        )
+    except ValueError as e:
+        return responder_error(code=400, message=str(e))

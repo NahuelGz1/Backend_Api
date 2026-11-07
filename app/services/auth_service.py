@@ -124,6 +124,12 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     for fila in entradas_bd:
         fecha_obj = fila["fecha_hora_proyeccion"]
 
+        if isinstance(fecha_obj, str):
+            try:
+                fecha_obj = datetime.strptime(fecha_obj, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                pass
+
         item = {
             "pelicula": {
                 "titulo": fila["pelicula_titulo"],
@@ -152,14 +158,14 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     for fila in servicios_bd:
         precio = float(fila["precio"]) if fila["precio"] is not None else 0.0
         total_candy += precio
-        
+
         fecha_compra = fila["fecha_hora_compra"]
         fecha_str = fecha_compra.strftime("%Y-%m-%d") if isinstance(fecha_compra, datetime) else str(fecha_compra).split(" ")[0]
 
         consumos_candy.append({
             "nombre": fila["servicio_nombre"],
             "cantidad": 1,
-            "precio_unitario": f"{precio:,.0f}",
+            "precio_unitario": precio,
             "fecha": fecha_str,
             "codigo_pedido": fila["id_compra_servicio"],
         })
@@ -168,7 +174,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         "entradas_proximas": entradas_proximas,
         "peliculas_vistas": peliculas_vistas,
         "consumos_candy": consumos_candy,
-        "consumos_candy_total": f"{total_candy:,.0f}",
+        "consumos_candy_total": total_candy,
     }
 
 def cambiar_contrasena_usuario(id_usuario: int, contrasena_actual: str, contrasena_nueva: str) -> None:

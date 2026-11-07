@@ -19,6 +19,27 @@ def listar_salas():
     )
 
 
+@salas_bp.route("", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
+def crear_sala():
+    datos = request.get_json(silent=True) or {}
+
+    try:
+        nueva_sala = salas_service.crear_sala(datos)
+
+        return responder_exito(
+            data=nueva_sala,
+            message="Sala creada exitosamente",
+            status_code=201
+        )
+    except ValueError as error:
+        return responder_error(
+            code=400,
+            message=str(error),
+        )
+
+
 @salas_bp.route("/<int:sala_id>", methods=["PATCH"])
 @requiere_autenticacion
 @requiere_administrador
@@ -33,7 +54,10 @@ def modificar_sala(sala_id):
             message="Sala modificada exitosamente",
         )
     except ValueError as error:
+        mensaje_error = str(error).lower()
+        codigo_estado = 404 if "no encontrad" in mensaje_error or "no existe" in mensaje_error else 400
+
         return responder_error(
-            code=400,
+            code=codigo_estado,
             message=str(error),
         )

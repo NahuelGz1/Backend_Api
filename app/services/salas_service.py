@@ -5,6 +5,29 @@ def obtener_salas(local=None):
     return salas_repository.listar_salas(local)
 
 
+def crear_sala(datos):
+    nombre = datos.get("nombre")
+    capacidad = datos.get("capacidad")
+    local = datos.get("local")
+
+    if not isinstance(nombre, str) or not nombre.strip():
+        raise ValueError("El nombre de la sala es obligatorio")
+
+    if not isinstance(capacidad, int) or capacidad <= 0:
+        raise ValueError("La capacidad debe ser un entero mayor a cero")
+
+    if not isinstance(local, str) or not local.strip():
+        raise ValueError("El local es obligatorio")
+
+    nuevo_id = salas_repository.crear(
+        nombre.strip(),
+        capacidad,
+        local.strip(),
+    )
+
+    return salas_repository.buscar_por_id(nuevo_id)
+
+
 def modificar_sala(sala_id, datos):
     sala_actual = salas_repository.buscar_por_id(sala_id)
 

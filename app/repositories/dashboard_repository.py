@@ -6,7 +6,8 @@ def obtener_metricas_ocupacion_por_pelicula() -> list[dict]:
     Calcula por película:
     - Entradas vendidas (compradas o utilizadas)
     - Entradas canceladas
-    - Capacidad total ofertada (calculada correctamente sin multiplicar por N entradas)
+    - Capacidad total ofertada
+    - Total recaudado en dinero (total_ingresos)
     """
     query = """
             SELECT
@@ -21,19 +22,21 @@ def obtener_metricas_ocupacion_por_pelicula() -> list[dict]:
                              WHERE f_sub.id_pelicula = p.id
                          ), 0) AS capacidad_total_ofertada,
                 COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN 1 ELSE 0 END), 0) AS total_entradas_vendidas,
-                COALESCE(SUM(CASE WHEN e.estado = 'cancelada' THEN 1 ELSE 0 END), 0) AS total_entradas_canceladas
+                COALESCE(SUM(CASE WHEN e.estado = 'cancelada' THEN 1 ELSE 0 END), 0) AS total_entradas_canceladas,
+                COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.precio_historico ELSE 0 END), 0) AS total_ingresos
             FROM peliculas p
                      LEFT JOIN funciones f ON p.id = f.id_pelicula
                      LEFT JOIN entradas e ON f.id = e.id_funcion
             GROUP BY p.id, p.titulo, p.genero
-            ORDER BY total_entradas_vendidas DESC \
+            ORDER BY total_entradas_vendidas DESC
             """
     return ejecutar_consulta(query)
 
 
 def obtener_metricas_ocupacion_por_funcion() -> list[dict]:
     """
-    Calcula la ocupación individual de cada función específica.
+    calcula la ocupacion individual de cada funcion especifica,
+    incluyendo entradas canceladas e ingresos monetarios.
     """
     query = """
             SELECT
@@ -44,44 +47,49 @@ def obtener_metricas_ocupacion_por_funcion() -> list[dict]:
                 s.local AS cine_local,
                 s.capacidad AS sala_capacidad,
                 COUNT(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.id END) AS butacas_ocupadas,
-                s.capacidad - COUNT(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.id END) AS butacas_libres
+                COUNT(CASE WHEN e.estado = 'cancelada' THEN e.id END) AS butacas_canceladas,
+                s.capacidad - COUNT(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.id END) AS butacas_libres,
+                COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.precio_historico_historico ELSE 0 END), 0) AS total_ingresos
             FROM funciones f
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
                      INNER JOIN salas s ON f.id_sala = s.id
                      LEFT JOIN entradas e ON f.id = e.id_funcion
             GROUP BY f.id, f.fecha_hora_proyeccion, p.titulo, s.nombre, s.local, s.capacidad
-            ORDER BY f.fecha_hora_proyeccion DESC \
+            ORDER BY f.fecha_hora_proyeccion DESC
             """
     return ejecutar_consulta(query)
 
 
 def obtener_resumen_general_ocupacion() -> dict:
     """
-    Calcula los totales globales para tarjetas o gráficos del dashboard.
+    calcula los totales (vendidas, canceladas, generadas e ingresos totales).
     """
     query = """
             SELECT
                 COUNT(CASE WHEN estado IN ('comprada', 'utilizada') THEN 1 END) AS total_vendidas,
                 COUNT(CASE WHEN estado = 'cancelada' THEN 1 END) AS total_canceladas,
-                COUNT(*) AS total_generadas
-            FROM entradas \
+                COUNT(*) AS total_generadas,
+                COALESCE(SUM(CASE WHEN estado IN ('comprada', 'utilizada') THEN precio ELSE 0 END), 0) AS total_ingresos
+            FROM entradas
             """
     resultados = ejecutar_consulta(query)
     return resultados[0] if resultados else {
         "total_vendidas": 0,
         "total_canceladas": 0,
         "total_generadas": 0,
+        "total_ingresos": 0,
     }
 
 
 def obtener_ventas_por_genero() -> list[dict]:
     """
-    Calcula las entradas vendidas agrupadas por género cinematográfico.
+    calcula entradas vendidas e ingresos agrupados por genero
     """
     query = """
             SELECT
                 p.genero,
-                COUNT(e.id) AS total_entradas
+                COUNT(e.id) AS total_entradas,
+                COALESCE(SUM(e.precio_historico), 0) AS total_ingresos
             FROM entradas e
                      INNER JOIN funciones f ON e.id_funcion = f.id
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
@@ -94,12 +102,13 @@ def obtener_ventas_por_genero() -> list[dict]:
 
 def obtener_ventas_por_franja_horaria() -> list[dict]:
     """
-    Calcula las entradas vendidas agrupadas por la hora de la función.
+    calcula entradas vendidas e ingresos agrupados por hora de proyeccion
     """
     query = """
             SELECT
                 HOUR(f.fecha_hora_proyeccion) AS hora,
-                COUNT(e.id) AS total_entradas
+                COUNT(e.id) AS total_entradas,
+                COALESCE(SUM(e.precio_historico), 0) AS total_ingresos
             FROM entradas e
                 INNER JOIN funciones f ON e.id_funcion = f.id
             WHERE e.estado IN ('comprada', 'utilizada')

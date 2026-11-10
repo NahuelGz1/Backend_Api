@@ -13,85 +13,66 @@ def calcular_reporte_ocupacion() -> dict:
     peliculas_db = obtener_metricas_ocupacion_por_pelicula()
     funciones_db = obtener_metricas_ocupacion_por_funcion()
     resumen_db = obtener_resumen_general_ocupacion()
-
     generos_db = obtener_ventas_por_genero()
     franjas_db = obtener_ventas_por_franja_horaria()
 
-    #detalle por película con cálculo de porcentaje
-    peliculas_ocupacion = []
-    labels_peliculas = []
-    data_ocupacion_porcentaje = []
+    resumen_general = {
+        "total_vendidas": int(resumen_db.get("total_vendidas", 0)),
+        "total_canceladas": int(resumen_db.get("total_canceladas", 0)),
+        "total_generadas": int(resumen_db.get("total_generadas", 0)),
+        "total_ingresos": float(resumen_db.get("total_ingresos", 0.0))
+    }
 
+    por_pelicula = []
     for fila in peliculas_db:
-        capacidad = int(fila["capacidad_total_ofertada"])
-        vendidas = int(fila["total_entradas_vendidas"])
-        porcentaje = round((vendidas / capacidad * 100), 2) if capacidad > 0 else 0.0
-
-        item = {
+        por_pelicula.append({
             "id_pelicula": fila["id_pelicula"],
-            "pelicula": fila["pelicula_titulo"],
-            "genero": fila["genero"],
-            "total_funciones": int(fila["total_funciones"]),
-            "capacidad_total": capacidad,
-            "entradas_vendidas": vendidas,
-            "entradas_canceladas": int(fila["total_entradas_canceladas"]),
-            "porcentaje_ocupacion": porcentaje,
-        }
-        peliculas_ocupacion.append(item)
-        labels_peliculas.append(fila["pelicula_titulo"])
-        data_ocupacion_porcentaje.append(porcentaje)
-
-    # detalle por función individual
-    funciones_ocupacion = []
-    for fila in funciones_db:
-        capacidad = int(fila["sala_capacidad"])
-        ocupadas = int(fila["butacas_ocupadas"])
-        porcentaje = round((ocupadas / capacidad * 100), 2) if capacidad > 0 else 0.0
-
-        funciones_ocupacion.append({
-            "id_funcion": fila["id_funcion"],
-            "fecha_hora": datetime_a_string(fila["fecha_hora_proyeccion"]),
-            "pelicula": fila["pelicula_titulo"],
-            "sala": fila["sala_nombre"],
-            "local": fila["cine_local"],
-            "capacidad": capacidad,
-            "butacas_ocupadas": ocupadas,
-            "butacas_libres": int(fila["butacas_libres"]),
-            "porcentaje_ocupacion": porcentaje,
+            "pelicula_titulo": fila["pelicula_titulo"],
+            "genero": fila.get("genero", ""),
+            "total_funciones": int(fila.get("total_funciones", 0)),
+            "capacidad_total_ofertada": int(fila.get("capacidad_total_ofertada", 0)),
+            "total_entradas_vendidas": int(fila.get("total_entradas_vendidas", 0)),
+            "total_entradas_canceladas": int(fila.get("total_entradas_canceladas", 0)),
+            "total_ingresos": float(fila.get("total_ingresos", 0.0))
         })
 
-    #estructura unificada lista para gráficos
+    por_funcion = []
+    for fila in funciones_db:
+        por_funcion.append({
+            "id_funcion": fila["id_funcion"],
+            "pelicula_titulo": fila["pelicula_titulo"],
+            "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
+            "cine_local": fila["cine_local"],
+            "sala_nombre": fila["sala_nombre"],
+            "sala_capacidad": int(fila["sala_capacidad"]),
+            "butacas_ocupadas": int(fila["butacas_ocupadas"]),
+            "butacas_canceladas": int(fila.get("butacas_canceladas", 0)),
+            "butacas_libres": int(fila.get("butacas_libres", 0)),
+            "total_ingresos": float(fila.get("total_ingresos", 0.0))
+        })
+
+    por_genero = [
+        {
+            "genero": fila["genero"],
+            "total_entradas": int(fila["total_entradas"]),
+            "total_ingresos": float(fila.get("total_ingresos", 0.0))
+        } for fila in generos_db
+    ]
+
+    por_franja_horaria = [
+        {
+            "hora": int(fila["hora"]),
+            "total_entradas": int(fila["total_entradas"]),
+            "total_ingresos": float(fila.get("total_ingresos", 0.0))
+        } for fila in franjas_db
+    ]
+
     return {
-        "resumen_general": {
-            "total_entradas_activas": int(resumen_db.get("total_vendidas", 0)),
-            "total_entradas_canceladas": int(resumen_db.get("total_canceladas", 0)),
-            "grafico_torta_estados": {
-                "labels": ["Vendidas / Utilizadas", "Canceladas"],
-                "data": [
-                    int(resumen_db.get("total_vendidas", 0)),
-                    int(resumen_db.get("total_canceladas", 0)),
-                ],
-            },
-        },
-        "grafico_barras_peliculas": {
-            "labels": labels_peliculas,
-            "datasets": [
-                {
-                    "label": "Porcentaje de Ocupación (%)",
-                    "data": data_ocupacion_porcentaje,
-                }
-            ],
-        },
-        "grafico_torta_generos": {
-            "labels": [fila["genero"] for fila in generos_db],
-            "data": [fila["total_entradas"] for fila in generos_db]
-        },
-        "grafico_barras_horarios": {
-            "labels": [f"{fila['hora']}:00" for fila in franjas_db],
-            "data": [fila["total_entradas"] for fila in franjas_db]
-        },
-        "detalle_peliculas": peliculas_ocupacion,
-        "detalle_funciones": funciones_ocupacion,
+        "resumen_general": resumen_general,
+        "por_pelicula": por_pelicula,
+        "por_funcion": por_funcion,
+        "por_genero": por_genero,
+        "por_franja_horaria": por_franja_horaria
     }
 
 

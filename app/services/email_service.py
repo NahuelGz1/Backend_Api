@@ -1,36 +1,118 @@
+import os
 import smtplib
-import ssl
-from email.message import EmailMessage
-from urllib.parse import urlencode, urlsplit
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from dotenv import load_dotenv
+from jinja2 import Environment, FileSystemLoader
 
-from flask import current_app
+# Cargamos las variables del .env
+load_dotenv()
 
 
-def enviar_recuperacion(email, token):
-    config = current_app.config
-    base = config["PASSWORD_RESET_URL"]
-    parsed = urlsplit(base)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc or parsed.query or parsed.fragment:
-        raise RuntimeError("PASSWORD_RESET_URL debe ser una URL absoluta sin query ni fragmento")
-    mensaje = EmailMessage()
-    mensaje["Subject"] = "Recuperar acceso a Cine Paradiso"
-    mensaje["From"] = config["SMTP_FROM"]
-    mensaje["To"] = email
-    enlace = base + "?" + urlencode({"token": token})
-    mensaje.set_content(
-        f"Para crear una nueva contraseña, abrí este enlace:\n{enlace}\n\n"
-        f"Vence en {config['PASSWORD_RESET_MAX_AGE'] // 60} minutos y queda invalidado al cambiar tu clave.\n"
-        "Si no solicitaste el cambio, ignorá este correo."
-    )
+def mock_url_for(endpoint: str, **kwargs) -> str:
+    # Traduce las rutas de Flask a URLs del frontend para que los botones de los correos funcionen
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+
+    rutas = {
+        "auth_views.iniciar_sesion": f"{frontend_url}/auth/iniciar-sesion",
+        "auth_views.recuperar_contrasena": f"{frontend_url}/auth/recuperar-contrasena",
+        "auth_views.restablecer_contrasena": f"{frontend_url}/auth/restablecer-contrasena",
+        "cliente_views.cartelera": f"{frontend_url}/cartelera",
+        "cliente_views.mi_perfil": f"{frontend_url}/mi-perfil",
+    }
+
+    return rutas.get(endpoint, f"{frontend_url}/{endpoint.replace('.', '/')}")
+
+
+def _obtener_jinja_env() -> Environment:
+    # Prepara el entorno de Jinja buscando las plantillas en la carpeta de templates del backend
+    directorio_actual = os.path.dirname(os.path.abspath(__file__))
+    ruta_templates = os.path.abspath(os.path.join(directorio_actual, "..", "templates", "emails"))
+
+    env = Environment(loader=FileSystemLoader(ruta_templates))
+    env.globals["url_for"] = mock_url_for
+    return env
+
+
+def renderizar_plantilla(nombre_plantilla: str, **contexto) -> str:
+    # Busca la plantilla HTML, le pasa las variables y arma el HTML para mandar
+    env = _obtener_jinja_env()
+    plantilla = env.get_template(nombre_plantilla)
+    return plantilla.render(**contexto)
+
+
+def enviar_correo(destinatario: str, asunto: str, cuerpo: str, es_html: bool = False) -> bool:
+    # Se conecta al servidor SMTP y envia el correo (texto o html)
+    smtp_server = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.getenv("MAIL_PORT", 587))
+    sender_email = os.getenv("MAIL_USERNAME")
+    sender_password = os.getenv("MAIL_PASSWORD")
+
+    if not sender_email or not sender_password:
+        print("[EMAIL ERROR] Faltan credenciales en el entorno.")
+        return False
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = destinatario
+    msg["Subject"] = asunto
+
+    tipo_contenido = "html" if es_html else "plain"
+    msg.attach(MIMEText(cuerpo, tipo_contenido, "utf-8"))
+
     try:
-        with smtplib.SMTP(config["SMTP_HOST"], config["SMTP_PORT"], timeout=10) as smtp:
-            if config["SMTP_STARTTLS"]:
-                smtp.starttls(context=ssl.create_default_context())
-            if config["SMTP_USERNAME"]:
-                smtp.login(config["SMTP_USERNAME"], config["SMTP_PASSWORD"])
-            rechazados = smtp.send_message(mensaje)
-            if rechazados:
-                raise smtplib.SMTPException("Entrega rechazada")
-    except (OSError, smtplib.SMTPException) as error:
-        current_app.logger.error("Falló la entrega del correo de recuperación")
-        raise ValueError("No fue posible procesar la recuperación. Intentá más tarde", 503) from error
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, destinatario, msg.as_string())
+
+        print(f"[EMAIL SUCCESS] Correo enviado a: {destinatario}")
+        return True
+
+    except Exception as e:
+        print(f"[EMAIL ERROR] Falló el envío: {e}")
+        return False
+
+
+def enviar_correo_cuenta_creada(destinatario: str, nombre_usuario: str) -> bool:
+    # Arma el correo de bienvenida usando la plantilla HTML y lo manda
+    asunto = "¡Bienvenido a Cine Paradiso - Cuenta creada con éxito!"
+
+    cuerpo_html = renderizar_plantilla(
+        "correo-cuenta-creada.html",
+        nombre=nombre_usuario,
+        email=destinatario
+    )
+
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)
+
+
+def enviar_correo_recuperacion(destinatario: str, token_recuperacion: str, nombre_usuario: str = "") -> bool:
+    # Arma y envia el correo con el link o token para recuperar la contraseña
+    asunto = "🔐 Recuperación de contraseña - Cine Paradiso"
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    url_reset = f"{frontend_url}/auth/restablecer-contrasena?token={token_recuperacion}"
+
+    contexto = {
+        "email": destinatario,
+        "token": token_recuperacion,
+        "url_reset": url_reset,
+    }
+    if nombre_usuario:
+        contexto["nombre"] = nombre_usuario
+
+    cuerpo_html = renderizar_plantilla("correo-recuperacion.html", **contexto)
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)
+
+
+def enviar_correo_compra(destinatario: str, detalles_compra: dict = None) -> bool:
+    # Arma y envia el comprobante de compra de entradas con los detalles
+    asunto = "🎟️ ¡Confirmación de compra - Cine Paradiso!"
+
+    detalles = detalles_compra.copy() if detalles_compra else {}
+    if "email" not in detalles:
+        detalles["email"] = destinatario
+
+    cuerpo_html = renderizar_plantilla("correo-compra.html", **detalles)
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)

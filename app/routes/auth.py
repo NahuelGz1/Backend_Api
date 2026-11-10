@@ -5,10 +5,16 @@ from app.utils.response import responder_exito, responder_error
 
 auth_bp = Blueprint("auth", __name__)
 
+def datos_json():
+    datos = request.get_json(silent=True)
+    if not isinstance(datos, dict):
+        raise ValueError("Debe enviar un objeto JSON válido", 400)
+    return datos
+
 
 @auth_bp.route("/register", methods=["POST"])
 def registrar_usuario():
-    datos = request.get_json(silent=True) or {}
+    datos = datos_json()
     resultado = auth_service.registrar_usuario(
         datos.get("nombre"),
         datos.get("email"),
@@ -19,12 +25,25 @@ def registrar_usuario():
 
 @auth_bp.route("/login", methods=["POST"])
 def iniciar_sesion():
-    datos = request.get_json(silent=True) or {}
+    datos = datos_json()
     resultado = auth_service.autenticar_usuario(
         datos.get("email"),
         datos.get("password")
     )
     return responder_exito(data=resultado, message="Inicio de sesión exitoso", status_code=200)
+
+
+@auth_bp.post("/forgot-password")
+def recuperar_contrasena():
+    auth_service.solicitar_recuperacion(datos_json().get("email"))
+    return responder_exito(message="Si el correo está asociado a una cuenta, recibirás un enlace.")
+
+
+@auth_bp.post("/reset-password")
+def restablecer_contrasena():
+    datos = datos_json()
+    auth_service.recuperar_password(datos.get("token"), datos.get("password"))
+    return responder_exito(message="Contraseña restablecida. Ya podés iniciar sesión.")
 
 
 @auth_bp.route("/logout", methods=["POST"])

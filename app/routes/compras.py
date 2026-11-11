@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 from app.services import qr_service, reserva_service
 from app.utils.decorators import requiere_autenticacion, requiere_administrador
 from app.utils.response import responder_exito, responder_error
@@ -15,7 +15,8 @@ def checkout_compra():
         return responder_exito(data=resultado, message="Compra procesada exitosamente", status_code=201)
     except ValueError as e:
         return responder_error(message=str(e), code=400)
-    except Exception:
+    except Exception as error:
+        current_app.logger.error("No se pudo procesar la compra (%s)", type(error).__name__)
         return responder_error(message="Error interno al procesar la compra", code=500)
 
 @compras_bp.route("/<int:compra_id>", methods=["GET"])

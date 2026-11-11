@@ -7,6 +7,50 @@ _schema_lock = threading.Lock()
 _schema_ready = False
 
 
+def _asegurar_tablas_compra(cursor):
+    """Completa instalaciones antiguas sin entradas; nunca borra su historial."""
+    cursor.execute("SHOW COLUMNS FROM entradas")
+    columnas = {fila["Field"]: fila for fila in cursor.fetchall()}
+    if "id_compra" not in columnas:
+        cursor.execute("SELECT COUNT(*) AS cantidad FROM entradas")
+        if cursor.fetchone()["cantidad"]:
+            raise RuntimeError(
+                "El esquema antiguo contiene entradas. Se requiere una migración "
+                "de su historial antes de habilitar compras; no se modificaron esas entradas."
+            )
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compras (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            id_usuario INT NOT NULL,
+            codigo_qr VARCHAR(255) NOT NULL,
+            fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
+        )
+    """)
+    if "id_compra" not in columnas:
+        cursor.execute("""
+            ALTER TABLE entradas
+            ADD COLUMN id_compra INT NOT NULL,
+            ADD FOREIGN KEY (id_compra) REFERENCES compras(id)
+        """)
+    if "precio_historico" not in columnas:
+        cursor.execute("ALTER TABLE entradas ADD COLUMN precio_historico DECIMAL(10, 2) NOT NULL DEFAULT 0")
+    if "id_usuario" in columnas and columnas["id_usuario"]["Null"] == "NO":
+        cursor.execute("ALTER TABLE entradas MODIFY id_usuario INT NULL")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS detalles_servicios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            id_compra INT NOT NULL,
+            id_servicio INT NOT NULL,
+            cantidad INT DEFAULT 1,
+            precio_historico DECIMAL(10, 2) NOT NULL,
+            usado BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY (id_compra) REFERENCES compras(id),
+            FOREIGN KEY (id_servicio) REFERENCES servicios(id)
+        )
+    """)
+
+
 def asegurar_esquema():
     """Aplica migraciones compatibles usando el usuario configurado en el entorno."""
     _asegurar_columnas_de_estado()
@@ -144,6 +188,10 @@ def _asegurar_columnas_de_estado():
         )
         try:
             with conexion.cursor() as cursor:
+                _asegurar_tablas_compra(cursor)
+                cursor.execute("SHOW COLUMNS FROM servicios LIKE 'activo'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE servicios ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE")
                 for tabla in ("peliculas", "funciones"):
                     cursor.execute(
                         """

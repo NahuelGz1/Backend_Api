@@ -219,6 +219,11 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     entradas_proximas = []
     peliculas_vistas = []
     ahora = datetime.now().replace(tzinfo=None)
+    servicios_por_compra = {}
+    for fila in servicios_bd:
+        compra_id = fila.get("id_compra")
+        if compra_id is not None:
+            servicios_por_compra.setdefault(compra_id, []).append(fila)
 
     for fila in entradas_bd:
         fecha_obj = fila.get("fecha_hora_proyeccion")
@@ -244,6 +249,13 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
 
         precio_entrada = fila.get("precio_historico")
         subtotal_str = f"{float(precio_entrada):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if precio_entrada is not None else "-"
+        servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
+        subtotal_servicios = sum(
+            float(servicio.get("precio") or 0) * int(servicio.get("cantidad") or 1)
+            for servicio in servicios_compra
+        )
+        subtotal_servicios_str = f"{subtotal_servicios:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        total_str = f"{(float(precio_entrada or 0) + subtotal_servicios):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
         item = {
             "id_compra": fila.get("id_compra"),
@@ -258,8 +270,16 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             "butacas": fila.get("numero_butaca", ""),
             "cantidad_entradas": 1,
             "subtotal_entradas": subtotal_str,
-            "subtotal_servicios": "-",
-            "total": subtotal_str,
+            "subtotal_servicios": subtotal_servicios_str,
+            "total": total_str,
+            "servicios": [
+                {
+                    "nombre": servicio.get("servicio_nombre", ""),
+                    "cantidad": int(servicio.get("cantidad") or 1),
+                    "precio": float(servicio.get("precio") or 0),
+                }
+                for servicio in servicios_compra
+            ],
             "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", ""),
         }
 

@@ -116,27 +116,44 @@
             <!-- Tabla de Códigos QR -->
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
               <tr>
-                <!-- QR 1 -->
-                <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d;">
-                  <div style="font-weight: bold; font-size: 14px; color: #ffffff; margin-bottom: 6px;">Butaca D5</div>
-                  <div style="font-size: 11px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">Volver al Futuro · 30/10/2026 19:30<br>Paradiso Centro · Sala 1 · Un solo uso</div>
-                  <div style="background-color: #ffffff; padding: 10px; display: inline-block; border-radius: 4px; margin-bottom: 8px;">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=CP-261030-0842-D5" alt="QR Butaca D5" width="110" height="110" style="display: block; border: 0;">
-                  </div>
-                  <div style="font-size: 11px; font-weight: bold; color: #ffffff;">CP-261030-0842-D5</div>
-                  <div style="font-size: 9px; color: #777777; margin-top: 4px;">QR ilustrativo · No válido como entrada real.</div>
-                </td>
-                <td class="qr-spacer" width="4%"></td>
-                <!-- QR 2 -->
-                <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d;">
-                  <div style="font-weight: bold; font-size: 14px; color: #ffffff; margin-bottom: 6px;">Butaca D6</div>
-                  <div style="font-size: 11px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">Volver al Futuro · 30/10/2026 19:30<br>Paradiso Centro · Sala 1 · Un solo uso</div>
-                  <div style="background-color: #ffffff; padding: 10px; display: inline-block; border-radius: 4px; margin-bottom: 8px;">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=CP-261030-0842-D6" alt="QR Butaca D6" width="110" height="110" style="display: block; border: 0;">
-                  </div>
-                  <div style="font-size: 11px; font-weight: bold; color: #ffffff;">CP-261030-0842-D6</div>
-                  <div style="font-size: 9px; color: #777777; margin-top: 4px;">QR ilustrativo · No válido como entrada real.</div>
-                </td>
+                {% if entradas %}
+                  {% for entrada in entradas %}
+                  <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d; margin-bottom: 12px;">
+                    <div style="font-weight: bold; font-size: 14px; color: #ffffff; margin-bottom: 6px;">Butaca {{ entrada.numero_butaca }}</div>
+                    <div style="font-size: 11px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">{{ pelicula_titulo | default('Película') }} · {{ funcion_fecha_hora }}<br>{{ complejo_sala }} · Un solo uso</div>
+                    <div style="background-color: #ffffff; padding: 10px; display: inline-block; border-radius: 4px; margin-bottom: 8px;">
+                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data={{ entrada.codigo_qr_texto }}" alt="QR Butaca {{ entrada.numero_butaca }}" width="110" height="110" style="display: block; border: 0;">
+                    </div>
+                    <div style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ entrada.codigo_qr_texto }}</div>
+                    <div style="font-size: 9px; color: #777777; margin-top: 4px;">Presentá este código al ingresar a la sala.</div>
+                  </td>
+                  {% if not loop.last %}
+                  <td class="qr-spacer" width="4%"></td>
+                  {% endif %}
+                  {% endfor %}
+                {% else %}
+                  <!-- QR 1 -->
+                  <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d;">
+                    <div style="font-weight: bold; font-size: 14px; color: #ffffff; margin-bottom: 6px;">Butaca D5</div>
+                    <div style="font-size: 11px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">Volver al Futuro · 30/10/2026 19:30<br>Paradiso Centro · Sala 1 · Un solo uso</div>
+                    <div style="background-color: #ffffff; padding: 10px; display: inline-block; border-radius: 4px; margin-bottom: 8px;">
+                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=CP-261030-0842-D5" alt="QR Butaca D5" width="110" height="110" style="display: block; border: 0;">
+                    </div>
+                    <div style="font-size: 11px; font-weight: bold; color: #ffffff;">CP-261030-0842-D5</div>
+                    <div style="font-size: 9px; color: #777777; margin-top: 4px;">QR ilustrativo · No válido como entrada real.</div>
+                  </td>
+                  <td class="qr-spacer" width="4%"></td>
+                  <!-- QR 2 -->
+                  <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d;">
+                    <div style="font-weight: bold; font-size: 14px; color: #ffffff; margin-bottom: 6px;">Butaca D6</div>
+                    <div style="font-size: 11px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">Volver al Futuro · 30/10/2026 19:30<br>Paradiso Centro · Sala 1 · Un solo uso</div>
+                    <div style="background-color: #ffffff; padding: 10px; display: inline-block; border-radius: 4px; margin-bottom: 8px;">
+                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=CP-261030-0842-D6" alt="QR Butaca D6" width="110" height="110" style="display: block; border: 0;">
+                    </div>
+                    <div style="font-size: 11px; font-weight: bold; color: #ffffff;">CP-261030-0842-D6</div>
+                    <div style="font-size: 9px; color: #777777; margin-top: 4px;">QR ilustrativo · No válido como entrada real.</div>
+                  </td>
+                {% endif %}
               </tr>
             </table>
 

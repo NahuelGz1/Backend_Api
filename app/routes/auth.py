@@ -106,3 +106,20 @@ def cambiar_contrasena():
         )
     except ValueError as e:
         return responder_error(code=400, message=str(e))
+
+
+@auth_bp.route("/usuarios/me", methods=["PATCH"])
+@requiere_autenticacion
+def actualizar_perfil_usuario():
+    """
+    Permite que un usuario autenticado actualice su perfil (nombre y/o email).
+    """
+    try:
+        datos = datos_json()
+        id_usuario = request.usuario_actual.get("sub")
+        perfil_actualizado = auth_service.actualizar_perfil_usuario(id_usuario, datos)
+        return responder_exito(data=perfil_actualizado, message="Perfil actualizado con éxito")
+    except ValueError as e:
+        return responder_error(message=str(e), status_code=400)
+    except Exception as e:
+        return responder_error(message="Error interno al actualizar el perfil", status_code=500)

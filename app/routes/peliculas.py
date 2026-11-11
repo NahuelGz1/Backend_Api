@@ -78,3 +78,16 @@ def buscar_pelicula_externa():
         return responder_error(
             code=400, message=str(e)
         )
+
+
+@peliculas_bp.route("/estrenos", methods=["GET"])
+def listar_estrenos():
+    try:
+        estrenos = peliculas_service.obtener_proximos_estrenos()
+        return responder_exito(
+            data=estrenos, message="Próximos estrenos obtenidos exitosamente"
+        )
+    except Exception as e:
+        return responder_error(
+            code=500, message=str(e)
+        )

@@ -50,6 +50,36 @@ def obtener_entrada_por_id(entrada_id: int) -> dict | None:
     return resultado[0] if resultado else None
 
 
+def obtener_compra_completa(compra_id: int) -> dict | None:
+    sql = """
+          SELECT c.id AS id_compra, c.id_usuario, c.codigo_qr AS codigo_compra,
+                 c.fecha_hora, e.id AS id_entrada, e.id_funcion,
+                 e.numero_butaca, e.precio_historico, e.codigo_qr,
+                 e.estado, f.fecha_hora_proyeccion, p.titulo AS pelicula,
+                 p.poster, s.nombre AS sala, s.local
+          FROM compras c
+                   JOIN entradas e ON e.id_compra = c.id
+                   JOIN funciones f ON e.id_funcion = f.id
+                   JOIN peliculas p ON f.id_pelicula = p.id
+                   JOIN salas s ON f.id_sala = s.id
+          WHERE c.id = %s
+          ORDER BY e.numero_butaca
+          """
+    entradas = ejecutar_consulta(sql, (compra_id,))
+    if not entradas:
+        return None
+    return {
+        "compra": {
+            "id": entradas[0]["id_compra"],
+            "id_usuario": entradas[0]["id_usuario"],
+            "codigo_qr": entradas[0]["codigo_compra"],
+            "fecha_hora": entradas[0]["fecha_hora"],
+        },
+        "entradas": entradas,
+        "servicios": obtener_servicios_por_compra(compra_id),
+    }
+
+
 def obtener_entradas_por_qr(codigo_qr: str) -> list[dict]:
     sql = """
           SELECT e.id AS id_entrada, c.id_usuario, c.id AS id_compra,

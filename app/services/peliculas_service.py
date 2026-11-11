@@ -122,3 +122,23 @@ def buscar_peliculas_en_tmdb(titulo: str) -> list:
         raise ValueError("Hay datos inválidos", 400, errores)
 
     return tmdb.buscar_peliculas(titulo_validado)
+
+
+def obtener_proximos_estrenos() -> list:
+    """Devuelve la lista de próximos estrenos recuperados desde la API de TMDB."""
+    try:
+        estrenos_crudos = tmdb.obtener_proximos_estrenos()
+        estrenos_formateados = []
+        for item in estrenos_crudos:
+            estrenos_formateados.append({
+                "id": item.get("tmdb_id"),
+                "titulo": item.get("titulo"),
+                "sinopsis": item.get("sinopsis"),
+                "poster": item.get("poster"),
+                "fecha_estreno": item.get("fecha_estreno"),
+                "genero": item.get("genero")
+            })
+        return estrenos_formateados
+    except Exception:
+        return []
+

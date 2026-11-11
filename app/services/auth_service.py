@@ -174,7 +174,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     ahora = datetime.now()
 
     for fila in entradas_bd:
-        fecha_obj = fila["fecha_hora_proyeccion"]
+        fecha_obj = fila.get("fecha_hora_proyeccion")
 
         if isinstance(fecha_obj, str):
             try:
@@ -182,24 +182,38 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             except ValueError:
                 pass
 
+        fecha_str = ""
+        horario_str = ""
+        if isinstance(fecha_obj, datetime):
+            fecha_str = fecha_obj.strftime("%Y-%m-%d")
+            horario_str = fecha_obj.strftime("%H:%M")
+        elif fecha_obj:
+            partes = str(fecha_obj).split(" ")
+            fecha_str = partes[0]
+            if len(partes) > 1:
+                horario_str = partes[1][:5]
+
+        precio_entrada = fila.get("precio_historico")
+        subtotal_str = f"{float(precio_entrada):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if precio_entrada is not None else "-"
+
         item = {
             "pelicula": {
-                "titulo": fila["pelicula_titulo"],
-                "poster_url": fila["pelicula_poster"],
+                "titulo": fila.get("pelicula_titulo", ""),
+                "poster_url": fila.get("pelicula_poster"),
             },
-            "fecha": fecha_obj.strftime("%Y-%m-%d") if isinstance(fecha_obj, datetime) else str(fecha_obj).split(" ")[0],
-            "horario": fecha_obj.strftime("%H:%M") if isinstance(fecha_obj, datetime) else str(fecha_obj).split(" ")[1][:5],
-            "complejo": fila["cine_local"],
-            "sala": fila["sala_nombre"],
-            "butacas": fila["numero_butaca"],
+            "fecha": fecha_str,
+            "horario": horario_str,
+            "complejo": fila.get("cine_local", ""),
+            "sala": fila.get("sala_nombre", ""),
+            "butacas": fila.get("numero_butaca", ""),
             "cantidad_entradas": 1,
-            "subtotal_entradas": "-",
+            "subtotal_entradas": subtotal_str,
             "subtotal_servicios": "-",
-            "total": "-",
-            "codigo_operacion": fila["id_entrada"],
+            "total": subtotal_str,
+            "codigo_operacion": fila.get("id_compra") or fila.get("id_entrada", ""),
         }
 
-        if isinstance(fecha_obj, datetime) and fecha_obj >= ahora and fila["estado"] != "usada":
+        if isinstance(fecha_obj, datetime) and fecha_obj >= ahora and fila.get("estado") not in ("usada", "utilizada", "cancelada"):
             entradas_proximas.append(item)
         else:
             peliculas_vistas.append(item)
@@ -208,18 +222,24 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     total_candy = 0.0
 
     for fila in servicios_bd:
-        precio = float(fila["precio"]) if fila["precio"] is not None else 0.0
-        total_candy += precio
+        cantidad = int(fila.get("cantidad") or 1)
+        precio = float(fila["precio"]) if fila.get("precio") is not None else 0.0
+        total_candy += precio * cantidad
 
-        fecha_compra = fila["fecha_hora_compra"]
-        fecha_str = fecha_compra.strftime("%Y-%m-%d") if isinstance(fecha_compra, datetime) else str(fecha_compra).split(" ")[0]
+        fecha_compra = fila.get("fecha_hora_compra")
+        if isinstance(fecha_compra, datetime):
+            fecha_str = fecha_compra.strftime("%Y-%m-%d")
+        elif fecha_compra:
+            fecha_str = str(fecha_compra).split(" ")[0]
+        else:
+            fecha_str = ""
 
         consumos_candy.append({
-            "nombre": fila["servicio_nombre"],
-            "cantidad": 1,
+            "nombre": fila.get("servicio_nombre", ""),
+            "cantidad": cantidad,
             "precio_unitario": precio,
             "fecha": fecha_str,
-            "codigo_pedido": fila["id_compra_servicio"],
+            "codigo_pedido": fila.get("id_compra_servicio", ""),
         })
 
     return {

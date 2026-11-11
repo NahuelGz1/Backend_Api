@@ -86,9 +86,28 @@ def crear_usuario(nombre: str, email: str, password_hash: str, rol: str = "clien
 
 def obtener_historial_servicios_por_usuario(id_usuario: int) -> list:
     """Obtiene las compras de servicios del usuario alineando alias con la capa de servicios."""
-    query = """
+    query_nuevo = """
+            SELECT
+                ds.id AS id_compra_servicio,
+                ds.cantidad,
+                c.fecha_hora AS fecha_hora_compra,
+                s.id AS id_servicio,
+                s.nombre AS servicio_nombre,
+                ds.precio_historico AS precio
+            FROM detalles_servicios ds
+                     INNER JOIN compras c ON ds.id_compra = c.id
+                     INNER JOIN servicios s ON ds.id_servicio = s.id
+            WHERE c.id_usuario = %s
+            ORDER BY c.fecha_hora DESC \
+            """
+    try:
+        return ejecutar_consulta(query_nuevo, (id_usuario,))
+    except Exception:
+        # Fallback para bases de datos con el esquema anterior (tabla compras_servicios)
+        query_viejo = """
             SELECT
                 cs.id AS id_compra_servicio,
+                1 AS cantidad,
                 cs.fecha_hora_compra,
                 s.id AS id_servicio,
                 s.nombre AS servicio_nombre,
@@ -98,17 +117,46 @@ def obtener_historial_servicios_por_usuario(id_usuario: int) -> list:
             WHERE cs.id_usuario = %s
             ORDER BY cs.fecha_hora_compra DESC \
             """
-    return ejecutar_consulta(query, (id_usuario,))
+        return ejecutar_consulta(query_viejo, (id_usuario,))
 
 
 def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
     """Obtiene el historial de entradas con todos los alias requeridos por auth_service."""
-    query = """
+    query_nuevo = """
             SELECT
                 e.id AS id_entrada,
                 e.numero_butaca,
                 e.codigo_qr,
                 e.estado,
+                e.precio_historico,
+                c.id AS id_compra,
+                f.id AS id_funcion,
+                f.fecha_hora_proyeccion,
+                p.titulo AS pelicula_titulo,
+                p.poster AS pelicula_poster,
+                p.duracion AS pelicula_duracion,
+                s.nombre AS sala_nombre,
+                s.local AS cine_local
+            FROM entradas e
+                     INNER JOIN compras c ON e.id_compra = c.id
+                     INNER JOIN funciones f ON e.id_funcion = f.id
+                     INNER JOIN peliculas p ON f.id_pelicula = p.id
+                     INNER JOIN salas s ON f.id_sala = s.id
+            WHERE c.id_usuario = %s
+            ORDER BY f.fecha_hora_proyeccion DESC \
+            """
+    try:
+        return ejecutar_consulta(query_nuevo, (id_usuario,))
+    except Exception:
+        # Fallback para bases de datos con el esquema anterior (entradas con id_usuario)
+        query_viejo = """
+            SELECT
+                e.id AS id_entrada,
+                e.numero_butaca,
+                e.codigo_qr,
+                e.estado,
+                NULL AS precio_historico,
+                e.id AS id_compra,
                 f.id AS id_funcion,
                 f.fecha_hora_proyeccion,
                 p.titulo AS pelicula_titulo,
@@ -123,4 +171,4 @@ def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
             WHERE e.id_usuario = %s
             ORDER BY f.fecha_hora_proyeccion DESC \
             """
-    return ejecutar_consulta(query, (id_usuario,))
+        return ejecutar_consulta(query_viejo, (id_usuario,))

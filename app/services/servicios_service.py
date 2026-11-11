@@ -10,6 +10,7 @@ def _servicio_a_dict(fila: dict) -> dict:
         "precio": float(fila["precio"]),
         "categoria": fila.get("categoria", "Snacks"),
         "activo": bool(fila.get("activo", True)),
+        "imagen_url": fila.get("imagen_url"),
     }
 
 

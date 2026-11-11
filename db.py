@@ -199,6 +199,17 @@ def _asegurar_columnas_de_estado():
                     )
                 cursor.execute(
                     """
+                    SELECT COUNT(*) AS cantidad FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'servicios'
+                    AND column_name = 'imagen_url'
+                    """
+                )
+                if cursor.fetchone()["cantidad"] == 0:
+                    cursor.execute(
+                        "ALTER TABLE servicios ADD COLUMN imagen_url MEDIUMTEXT"
+                    )
+                cursor.execute(
+                    """
                     SELECT COUNT(*) AS cantidad
                     FROM information_schema.columns
                     WHERE table_schema = DATABASE()

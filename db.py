@@ -292,6 +292,32 @@ def _asegurar_columnas_de_estado():
                 )
                 if cursor.fetchone()["cantidad"]:
                     cursor.execute("ALTER TABLE entradas DROP INDEX codigo_qr")
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS cantidad
+                    FROM information_schema.statistics
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'entradas'
+                      AND index_name = 'butaca_unica_por_funcion'
+                    """
+                )
+                if cursor.fetchone()["cantidad"]:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS cantidad
+                        FROM information_schema.statistics
+                        WHERE table_schema = DATABASE()
+                          AND table_name = 'entradas'
+                          AND index_name = 'idx_entradas_funcion'
+                        """
+                    )
+                    if cursor.fetchone()["cantidad"] == 0:
+                        cursor.execute(
+                            "ALTER TABLE entradas ADD INDEX idx_entradas_funcion (id_funcion)"
+                        )
+                    cursor.execute(
+                        "ALTER TABLE entradas DROP INDEX butaca_unica_por_funcion"
+                    )
             _schema_ready = True
         finally:
             conexion.close()

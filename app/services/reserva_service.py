@@ -1,6 +1,8 @@
 import hashlib
 import time
-from app.repositories import compras_repository
+from flask import current_app
+from app.repositories import compras_repository, auth_repository, funciones_repository
+from app.services.email_service import enviar_correo_compra
 from app.utils.qr import generar_codigo_qr
 from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR, ESTADO_ENTRADA_CANCELADA
 
@@ -40,6 +42,24 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
         })
 
     id_compra = compras_repository.guardar_compra_completa(id_usuario, entradas_data, servicios)
+    try:
+        usuario = auth_repository.obtener_usuario_por_id(id_usuario)
+        funcion_info = funciones_repository.buscar_funcion_por_id(id_funcion)
+        if usuario and usuario.get("email"):
+            detalles_email = {
+                "nombre": usuario.get("nombre", "Cliente"),
+                "email": usuario.get("email"),
+                "codigo_operacion": f"CP-{id_compra}",
+                "pelicula_titulo": funcion_info.get("pelicula_titulo") if funcion_info else "Película",
+                "pelicula_poster": funcion_info.get("pelicula_poster") if funcion_info else "",
+                "funcion_fecha_hora": str(funcion_info.get("fecha_hora_proyeccion")) if funcion_info else "",
+                "complejo_sala": f"{funcion_info.get('sala_local', '')} · {funcion_info.get('sala_nombre', '')}" if funcion_info else "",
+                "butacas_resumen": f"Butacas: {', '.join(str(b) for b in butacas)}",
+                "entradas": entradas_generadas_info,
+            }
+            enviar_correo_compra(usuario["email"], detalles_email)
+    except Exception as e:
+        current_app.logger.error("Error al enviar correo de compra: %s", e)
 
     return {
         "id_compra": id_compra,

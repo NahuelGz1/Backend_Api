@@ -16,7 +16,9 @@ def checkout_compra():
     except ValueError as e:
         return responder_error(message=str(e), status_code=400)
     except Exception as e:
-        return responder_error(message="Error interno al procesar la compra", status_code=500)
+        import traceback
+        traceback.print_exc()
+        return responder_error(message=f"Error interno: {str(e)}", status_code=500)
 
 @compras_bp.route("/<int:compra_id>", methods=["GET"])
 @requiere_autenticacion

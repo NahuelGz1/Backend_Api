@@ -12,7 +12,7 @@ from app.repositories.auth_repository import (
 import hmac
 from flask import current_app
 from itsdangerous import BadData, URLSafeTimedSerializer
-from app.services.email_service import enviar_correo_recuperacion
+from app.services.email_service import enviar_correo_recuperacion, enviar_correo_cuenta_creada
 from app.validators.auth_validator import validar_email, validar_nombre, validar_password
 from app.utils.dates import datetime_a_string
 from app.utils.security import (
@@ -37,6 +37,11 @@ def registrar_usuario(nombre: str, email: str, password: str, rol: str = "client
 
     password_hash = hashear_contraseña(password)
     resultado = crear_usuario(nombre=nombre, email=email, password_hash=password_hash, rol="cliente")
+    # Enviamos el correo de bienvenida
+    try:
+        enviar_correo_cuenta_creada(destinatario=email, nombre_usuario=nombre)
+    except Exception as e:
+        current_app.logger.error("Error al enviar correo de cuenta creada: %s", e)
 
     if isinstance(resultado, dict) and "error" in resultado:
         raise ValueError(resultado["error"])

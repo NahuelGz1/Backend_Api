@@ -15,7 +15,8 @@ def _sql_funciones_vigentes(solo_una_pelicula: bool = False) -> str:
                  salas.nombre AS sala, salas.local, salas.capacidad
           FROM funciones
                    JOIN salas ON salas.id = funciones.id_sala
-          WHERE funciones.fecha_hora_proyeccion > %s \
+          WHERE funciones.activo = TRUE
+            AND funciones.fecha_hora_proyeccion > %s \
           """
     if solo_una_pelicula:
         sql += " AND funciones.id_pelicula = %s"
@@ -27,17 +28,29 @@ def listar_peliculas_en_cartelera() -> list[dict]:
     """Películas que tienen al menos una función vigente."""
     sql = """
           SELECT peliculas.id, peliculas.titulo, peliculas.sinopsis, peliculas.poster, peliculas.duracion,
-                 peliculas.clasificacion, peliculas.genero
+                 peliculas.clasificacion, peliculas.genero, peliculas.activo, peliculas.eliminada
           FROM peliculas
-          WHERE EXISTS (
+          WHERE peliculas.activo = TRUE AND peliculas.eliminada = FALSE AND EXISTS (
               SELECT 1
               FROM funciones
               WHERE funciones.id_pelicula = peliculas.id
+                AND funciones.activo = TRUE
                 AND funciones.fecha_hora_proyeccion > %s
           )
           ORDER BY peliculas.titulo \
           """
     return ejecutar_consulta(sql, (_ahora(),))
+
+
+def listar_todas() -> list[dict]:
+    return ejecutar_consulta(
+        """
+        SELECT id, titulo, sinopsis, poster, duracion, clasificacion, genero, activo, eliminada
+        FROM peliculas
+        WHERE eliminada = FALSE
+        ORDER BY titulo
+        """
+    )
 
 
 def listar_funciones_vigentes() -> list[dict]:
@@ -55,7 +68,7 @@ def listar_funciones_vigentes_de_pelicula(pelicula_id: int) -> list[dict]:
 def buscar_por_id(pelicula_id: int) -> dict | None:
     """Devuelve la película como diccionario, o None si no existe."""
     sql = """
-          SELECT id, titulo, sinopsis, poster, duracion, clasificacion, genero
+          SELECT id, titulo, sinopsis, poster, duracion, clasificacion, genero, activo, eliminada
           FROM peliculas
           WHERE id = %s \
           """
@@ -77,8 +90,8 @@ def existe_pelicula(titulo: str, duracion: int) -> bool:
 def insertar(pelicula: dict) -> int:
     """Guarda una película nueva y devuelve su ID generado."""
     sql = """
-          INSERT INTO peliculas (titulo, sinopsis, poster, duracion, clasificacion, genero)
-          VALUES (%s, %s, %s, %s, %s, %s) \
+          INSERT INTO peliculas (titulo, sinopsis, poster, duracion, clasificacion, genero, activo, eliminada)
+          VALUES (%s, %s, %s, %s, %s, %s, TRUE, FALSE) \
           """
     parametros = (
         pelicula["titulo"],
@@ -99,3 +112,17 @@ def actualizar_datos_tmdb(pelicula_id: int, sinopsis: str | None, poster: str | 
           WHERE id = %s
           """
     return ejecutar_mutacion(sql, (sinopsis, poster, pelicula_id))
+
+
+def cambiar_estado(pelicula_id: int, activo: bool) -> int:
+    return ejecutar_mutacion(
+        "UPDATE peliculas SET activo = %s WHERE id = %s",
+        (activo, pelicula_id),
+    )
+
+
+def eliminar(pelicula_id: int) -> int:
+    return ejecutar_mutacion(
+        "UPDATE peliculas SET activo = FALSE, eliminada = TRUE WHERE id = %s",
+        (pelicula_id,),
+    )

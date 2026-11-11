@@ -84,6 +84,22 @@ def crear_usuario(nombre: str, email: str, password_hash: str, rol: str = "clien
     }
 
 
+def actualizar_rol_usuario(id_usuario: int, rol: str) -> int:
+    """Actualiza el rol de una cuenta y devuelve la cantidad de filas afectadas."""
+    return ejecutar_mutacion(
+        "UPDATE usuarios SET rol = %s WHERE id = %s",
+        (rol, id_usuario),
+    )
+
+
+def listar_administradores() -> list[dict]:
+    return ejecutar_consulta(
+        "SELECT id, nombre, email, rol FROM usuarios "
+        "WHERE rol = %s ORDER BY email",
+        ("administrador",),
+    )
+
+
 def obtener_historial_servicios_por_usuario(id_usuario: int) -> list:
     """Obtiene las compras de servicios del usuario alineando alias con la capa de servicios."""
     query_nuevo = """

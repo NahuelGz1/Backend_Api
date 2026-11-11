@@ -23,7 +23,9 @@ CREATE TABLE peliculas (
     poster VARCHAR(255),
     duracion INT,
     clasificacion VARCHAR(10),
-    genero VARCHAR(50)
+    genero VARCHAR(50),
+    activo BOOLEAN DEFAULT TRUE,
+    eliminada BOOLEAN DEFAULT FALSE
 );
 
 -- Salas de cada local
@@ -40,6 +42,7 @@ CREATE TABLE servicios (
     nombre VARCHAR(100) NOT NULL,
     descripcion TEXT,
     precio DECIMAL(10, 2) NOT NULL,
+    categoria VARCHAR(40) NOT NULL DEFAULT 'Snacks',
     activo BOOLEAN DEFAULT TRUE
 );
 
@@ -51,6 +54,8 @@ CREATE TABLE funciones (
     id_pelicula INT NOT NULL,
     id_sala INT NOT NULL,
     fecha_hora_proyeccion DATETIME NOT NULL,
+    activo BOOLEAN DEFAULT TRUE,
+    eliminada BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (id_pelicula) REFERENCES peliculas(id),
     FOREIGN KEY (id_sala) REFERENCES salas(id)
 );
@@ -59,6 +64,7 @@ CREATE TABLE funciones (
 CREATE TABLE compras (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario INT NOT NULL,
+    codigo_qr VARCHAR(255) NOT NULL,
     fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
 );
@@ -71,7 +77,7 @@ CREATE TABLE entradas (
     id_funcion INT NOT NULL,
     numero_butaca INT NOT NULL,
     precio_historico DECIMAL(10, 2) NOT NULL,
-    codigo_qr VARCHAR(255) UNIQUE NOT NULL,
+    codigo_qr VARCHAR(255) NOT NULL,
     estado VARCHAR(20) DEFAULT 'comprada',
     UNIQUE KEY butaca_unica_por_funcion (id_funcion, numero_butaca),
     FOREIGN KEY (id_compra) REFERENCES compras(id),
@@ -89,4 +95,3 @@ CREATE TABLE detalles_servicios (
     FOREIGN KEY (id_compra) REFERENCES compras(id),
     FOREIGN KEY (id_servicio) REFERENCES servicios(id)
 );
-

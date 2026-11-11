@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 from app.services import auth_service
-from app.utils.decorators import requiere_autenticacion
+from app.utils.decorators import requiere_administrador, requiere_autenticacion
 from app.utils.response import responder_exito, responder_error
 
 auth_bp = Blueprint("auth", __name__)
@@ -58,6 +58,40 @@ def obtener_usuario_actual():
     id_usuario = request.usuario_actual.get("sub")
     perfil = auth_service.consultar_perfil_usuario(id_usuario)
     return responder_exito(data=perfil, message="Perfil obtenido con éxito", status_code=200)
+
+
+@auth_bp.route("/usuarios/admins", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
+def habilitar_administrador():
+    datos = datos_json()
+    resultado = auth_service.habilitar_administrador(
+        request.usuario_actual.get("sub"),
+        datos.get("email"),
+    )
+    return responder_exito(
+        data=resultado,
+        message="Administrador habilitado correctamente",
+        status_code=200,
+    )
+
+
+@auth_bp.route("/usuarios/admins", methods=["GET"])
+@requiere_autenticacion
+@requiere_administrador
+def listar_administradores():
+    datos = auth_service.consultar_administradores(request.usuario_actual.get("sub"))
+    return responder_exito(data=datos, message="Administradores obtenidos correctamente")
+
+
+@auth_bp.route("/usuarios/admins/<int:id_usuario>", methods=["DELETE"])
+@requiere_autenticacion
+@requiere_administrador
+def dar_de_baja_administrador(id_usuario):
+    auth_service.dar_de_baja_administrador(
+        request.usuario_actual.get("sub"), id_usuario
+    )
+    return responder_exito(data=None, message="Administrador dado de baja correctamente")
 
 
 @auth_bp.route("/usuarios/me/historial", methods=["GET"])

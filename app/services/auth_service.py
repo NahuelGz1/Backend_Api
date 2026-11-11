@@ -9,6 +9,8 @@ from app.repositories.auth_repository import (
     obtener_credenciales_por_id,
     restablecer_password,
     actualizar_usuario,
+    actualizar_rol_usuario,
+    listar_administradores,
 )
 import hmac
 from flask import current_app
@@ -77,6 +79,50 @@ def autenticar_usuario(email: str, password: str) -> dict:
             "rol": rol_usuario,
         },
     }
+
+
+def habilitar_administrador(id_super_admin: int, email: str) -> dict:
+    """Eleva una cuenta existente a administrador sólo desde el super admin."""
+    email = validar_email(email)
+    super_admin = obtener_usuario_por_id(id_super_admin)
+    if not super_admin or super_admin["email"].casefold() != current_app.config["SUPER_ADMIN_EMAIL"]:
+        raise PermissionError("Sólo el administrador principal puede habilitar administradores")
+
+    usuario = buscar_por_email(email)
+    if not usuario:
+        raise ValueError("No existe una cuenta registrada con ese correo.", 404)
+    if usuario["rol"] != "administrador":
+        if actualizar_rol_usuario(usuario["id"], "administrador") != 1:
+            raise ValueError("No se pudo habilitar la cuenta.", 500)
+    return {
+        "id": usuario["id"],
+        "nombre": usuario["nombre"],
+        "email": usuario["email"],
+        "rol": "administrador",
+    }
+
+
+def consultar_administradores(id_super_admin: int) -> list[dict]:
+    _verificar_super_admin(id_super_admin)
+    return listar_administradores()
+
+
+def dar_de_baja_administrador(id_super_admin: int, id_usuario: int) -> None:
+    _verificar_super_admin(id_super_admin)
+    if id_usuario == id_super_admin:
+        raise ValueError("El administrador principal no puede darse de baja.", 400)
+    usuario = obtener_usuario_por_id(id_usuario)
+    if not usuario or usuario["rol"] != "administrador":
+        raise ValueError("El administrador no existe.", 404)
+    if actualizar_rol_usuario(id_usuario, "cliente") != 1:
+        raise ValueError("No se pudo dar de baja al administrador.", 500)
+
+
+def _verificar_super_admin(id_usuario: int) -> dict:
+    usuario = obtener_usuario_por_id(id_usuario)
+    if not usuario or usuario["email"].casefold() != current_app.config["SUPER_ADMIN_EMAIL"]:
+        raise PermissionError("Sólo el administrador principal puede gestionar administradores")
+    return usuario
 
 
 def solicitar_recuperacion(email):
@@ -172,16 +218,18 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
 
     entradas_proximas = []
     peliculas_vistas = []
-    ahora = datetime.now()
+    ahora = datetime.now().replace(tzinfo=None)
 
     for fila in entradas_bd:
         fecha_obj = fila.get("fecha_hora_proyeccion")
 
         if isinstance(fecha_obj, str):
             try:
-                fecha_obj = datetime.strptime(fecha_obj, "%Y-%m-%d %H:%M:%S")
+                fecha_obj = datetime.fromisoformat(fecha_obj.replace("Z", "+00:00"))
             except ValueError:
                 pass
+        if isinstance(fecha_obj, datetime) and fecha_obj.tzinfo is not None:
+            fecha_obj = fecha_obj.replace(tzinfo=None)
 
         fecha_str = ""
         horario_str = ""
@@ -214,7 +262,11 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             "codigo_operacion": fila.get("id_compra") or fila.get("id_entrada", ""),
         }
 
-        if isinstance(fecha_obj, datetime) and fecha_obj >= ahora and fila.get("estado") not in ("usada", "utilizada", "cancelada"):
+        if (
+            isinstance(fecha_obj, datetime)
+            and fecha_obj >= ahora
+            and fila.get("estado") not in ("usada", "utilizada", "cancelada")
+        ):
             entradas_proximas.append(item)
         else:
             peliculas_vistas.append(item)

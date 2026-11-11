@@ -25,22 +25,29 @@ def listar_salas(local: str | None = None) -> list[dict]:
     return ejecutar_consulta(sql, tuple(parametros))
 
 
-def listar_funciones() -> list[dict]:
+def listar_funciones(incluir_inactivas: bool = False) -> list[dict]:
     sql = """
           SELECT
               f.id AS funcion_id,
               f.fecha_hora_proyeccion,
+              f.activo,
+              f.eliminada,
               p.id AS pelicula_id,
               p.titulo AS pelicula_titulo,
               p.duracion AS pelicula_duracion,
+              p.activo AS pelicula_activa,
+              p.eliminada AS pelicula_eliminada,
               s.id AS sala_id,
               s.nombre AS sala_nombre,
               s.local AS sala_local
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
                    JOIN salas s ON s.id = f.id_sala
-          ORDER BY f.fecha_hora_proyeccion ASC;
           """
+    sql += " WHERE f.eliminada = FALSE"
+    if not incluir_inactivas:
+        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE"
+    sql += " ORDER BY f.fecha_hora_proyeccion ASC"
     return ejecutar_consulta(sql)
 
 
@@ -49,9 +56,13 @@ def buscar_funcion_por_id(funcion_id: int) -> dict | None:
           SELECT
               f.id AS funcion_id,
               f.fecha_hora_proyeccion,
+              f.activo,
+              f.eliminada,
               p.id AS pelicula_id,
               p.titulo AS pelicula_titulo,
               p.duracion AS pelicula_duracion,
+              p.activo AS pelicula_activa,
+              p.eliminada AS pelicula_eliminada,
               s.id AS sala_id,
               s.nombre AS sala_nombre,
               s.local AS sala_local
@@ -128,5 +139,12 @@ def actualizar_funcion(funcion_id: int, id_pelicula: int, id_sala: int, fecha_ho
 
 
 def eliminar_funcion(funcion_id: int) -> None:
-    sql = "DELETE FROM funciones WHERE id = %s;"
+    sql = "UPDATE funciones SET activo = FALSE, eliminada = TRUE WHERE id = %s;"
     ejecutar_mutacion(sql, (funcion_id,))
+
+
+def cambiar_estado_funcion(funcion_id: int, activo: bool) -> None:
+    ejecutar_mutacion(
+        "UPDATE funciones SET activo = %s WHERE id = %s",
+        (activo, funcion_id),
+    )

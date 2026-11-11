@@ -43,6 +43,7 @@ CREATE TABLE servicios (
     descripcion TEXT,
     precio DECIMAL(10, 2) NOT NULL,
     categoria VARCHAR(40) NOT NULL DEFAULT 'Snacks',
+    imagen_url MEDIUMTEXT,
     activo BOOLEAN DEFAULT TRUE
 );
 

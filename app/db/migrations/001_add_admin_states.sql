@@ -15,6 +15,9 @@ ALTER TABLE peliculas
 ALTER TABLE servicios
     ADD COLUMN IF NOT EXISTS categoria VARCHAR(40) NOT NULL DEFAULT 'Snacks';
 
+ALTER TABLE servicios
+    ADD COLUMN imagen_url MEDIUMTEXT;
+
 ALTER TABLE compras
     ADD COLUMN IF NOT EXISTS codigo_qr VARCHAR(255) UNIQUE;
 

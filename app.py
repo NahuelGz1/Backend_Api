@@ -27,7 +27,7 @@ app.config.from_mapping(
     SMTP_USERNAME=os.getenv("SMTP_USERNAME", ""),
     SMTP_PASSWORD=os.getenv("SMTP_PASSWORD", ""),
     SMTP_STARTTLS=os.getenv("SMTP_STARTTLS", "true").lower() == "true",
-    MAX_CONTENT_LENGTH=16384,
+    MAX_CONTENT_LENGTH=8 * 1024 * 1024,
 )
 if not app.config["JWT_SECRET_KEY"] or len(app.config["JWT_SECRET_KEY"]) < 32:
     raise RuntimeError("Configurá JWT_SECRET_KEY con al menos 32 caracteres")

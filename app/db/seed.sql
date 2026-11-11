@@ -30,13 +30,13 @@ INSERT INTO salas (nombre, capacidad, local) VALUES
     ('Sala 2', 40, 'Paradiso Sur');
 
 -- 6 servicios
-INSERT INTO servicios (nombre, descripcion, precio) VALUES
-    ('Balde de pochoclos', '1 balde de pochoclos', 13500.00),
-    ('Combo Mega Recargado', '1 balde de pochoclos, 2 gaseosas grandes, 1 golosina y recarga de balde y vasos', 39700.00),
-    ('Combo Mega Individual', '1 balde de pochoclos y 1 gaseosa grande', 23400.00),
-    ('Agua', '1 agua, valor por unidad', 5200.00),
-    ('Estacionamiento', 'Cochera durante la función', 6000.00),
-    ('Acceso VIP', 'Butacas reclinables y atención en la sala', 15000.00);
+INSERT INTO servicios (nombre, descripcion, precio, categoria) VALUES
+    ('Balde de pochoclos', '1 balde de pochoclos', 13500.00, 'Pochoclos'),
+    ('Combo Mega Recargado', '1 balde de pochoclos, 2 gaseosas grandes, 1 golosina y recarga de balde y vasos', 39700.00, 'Pochoclos'),
+    ('Combo Mega Individual', '1 balde de pochoclos y 1 gaseosa grande', 23400.00, 'Pochoclos'),
+    ('Agua', '1 agua, valor por unidad', 5200.00, 'Bebidas'),
+    ('Estacionamiento', 'Cochera durante la función', 6000.00, 'Mejoras de experiencia'),
+    ('Acceso VIP', 'Butacas reclinables y atención en la sala', 15000.00, 'Mejoras de experiencia');
 
 -- 14 funciones
 INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion) VALUES

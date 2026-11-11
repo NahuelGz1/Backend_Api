@@ -70,13 +70,21 @@ def _formatear_resultado_tmdb(resultado, nombres_de_generos):
         "genero": primer_genero,
     }
 def obtener_proximos_estrenos():
-    """Obtiene los próximos estrenos directamente desde TMDB (endpoint /movie/upcoming)."""
+    """Obtiene películas populares con fecha de estreno anterior a 2026 desde TMDB."""
     api_key = os.getenv("TMDB_API_KEY")
     if not api_key:
         raise ValueError("Falta configurar la variable de entorno TMDB_API_KEY", 500)
 
     nombres_de_generos = _obtener_nombres_de_generos(api_key)
-    datos = _pedir_a_tmdb("/movie/upcoming", api_key)
+    datos = _pedir_a_tmdb(
+        "/discover/movie",
+        api_key,
+        {
+            "sort_by": "popularity.desc",
+            "primary_release_date.lte": "2024-12-31",
+            "vote_count.gte": "100",
+        },
+    )
     resultados_crudos = datos.get("results", [])
 
     resultados_formateados = []

@@ -75,19 +75,45 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
     }
 
 def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
-    entrada = compras_repository.obtener_entrada_por_id(compra_id)
-
-    if not entrada:
+    id_usuario = int(id_usuario)
+    compra = compras_repository.obtener_compra_completa(compra_id)
+    if not compra:
         raise ValueError(f"No se encontró la compra con ID {compra_id}")
 
-    if entrada["id_usuario"] != id_usuario:
+    if compra["compra"]["id_usuario"] != id_usuario:
         raise PermissionError("No tienes permiso para ver el detalle de esta entrada.")
 
-    del entrada["id_usuario"]
-    entrada["fecha_hora_proyeccion"] = str(entrada["fecha_hora_proyeccion"])
-    return entrada
+    primera = compra["entradas"][0]
+    for entrada in compra["entradas"]:
+        entrada["fecha_hora_proyeccion"] = str(entrada["fecha_hora_proyeccion"])
+        entrada["qr_imagen_base64"] = generar_codigo_qr(entrada["codigo_qr"])
+        entrada.pop("id_usuario", None)
+    compra["funcion"] = {
+        "pelicula": {"titulo": primera["pelicula"], "poster_url": primera["poster"]},
+        "fecha_hora_proyeccion": str(primera["fecha_hora_proyeccion"]),
+        "sala": {"nombre": primera["sala"], "local": primera["local"]},
+    }
+    compra["reserva"] = {
+        "id": compra_id,
+        "codigo": f"CP-{compra_id}",
+        "estado": "cancelada" if all(e["estado"] == ESTADO_ENTRADA_CANCELADA for e in compra["entradas"]) else "confirmada",
+        "entradas": compra["entradas"],
+    }
+    compra["resumen"] = {
+        "subtotal_entradas": sum(float(e["precio_historico"]) for e in compra["entradas"]),
+        "servicios": compra["servicios"],
+        "subtotal_servicios": sum(float(s["precio"]) * int(s["cantidad"]) for s in compra["servicios"]),
+    }
+    compra.pop("entradas")
+    compra.pop("servicios")
+    compra["reserva"]["entradas"] = [
+        {**entrada, "fila": "", "numero": entrada["numero_butaca"]}
+        for entrada in compra["reserva"]["entradas"]
+    ]
+    return compra
 
 def cancelar_compra(compra_id: int, id_usuario: int) -> dict:
+    id_usuario = int(id_usuario)
     datos_compra = compras_repository.obtener_datos_resumen_compra(compra_id)
 
     if not datos_compra:

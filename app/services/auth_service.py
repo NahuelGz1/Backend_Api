@@ -246,6 +246,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         subtotal_str = f"{float(precio_entrada):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if precio_entrada is not None else "-"
 
         item = {
+            "id_compra": fila.get("id_compra"),
             "pelicula": {
                 "titulo": fila.get("pelicula_titulo", ""),
                 "poster_url": fila.get("pelicula_poster"),
@@ -259,7 +260,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             "subtotal_entradas": subtotal_str,
             "subtotal_servicios": "-",
             "total": subtotal_str,
-            "codigo_operacion": fila.get("id_compra") or fila.get("id_entrada", ""),
+            "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", ""),
         }
 
         if (

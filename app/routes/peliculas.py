@@ -19,6 +19,42 @@ def listar_cartelera():
         )
 
 
+@peliculas_bp.route("/admin", methods=["GET"])
+@requiere_autenticacion
+@requiere_administrador
+def listar_peliculas_admin():
+    return responder_exito(data=peliculas_service.listar_peliculas_admin())
+
+
+@peliculas_bp.route("/<int:pelicula_id>/estado", methods=["PATCH"])
+@requiere_autenticacion
+@requiere_administrador
+def cambiar_estado_pelicula(pelicula_id):
+    datos = request.get_json(silent=True) or {}
+    if not isinstance(datos.get("activo"), bool):
+        return responder_error(code=400, message="El estado de la película no es válido")
+    try:
+        return responder_exito(
+            data=peliculas_service.cambiar_estado_pelicula(pelicula_id, datos["activo"]),
+            message="Estado de la película actualizado",
+        )
+    except ValueError as error:
+        return responder_error(code=error.args[1] if len(error.args) > 1 else 404, message=str(error))
+
+
+@peliculas_bp.route("/<int:pelicula_id>", methods=["DELETE"])
+@requiere_autenticacion
+@requiere_administrador
+def eliminar_pelicula(pelicula_id):
+    try:
+        return responder_exito(
+            data=peliculas_service.eliminar_pelicula(pelicula_id),
+            message="Película retirada del catálogo",
+        )
+    except ValueError as error:
+        return responder_error(code=error.args[1] if len(error.args) > 1 else 404, message=str(error))
+
+
 @peliculas_bp.route("/<int:pelicula_id>", methods=["GET"])
 def obtener_detalle_pelicula(pelicula_id: int):
     try:

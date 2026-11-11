@@ -5,12 +5,20 @@ from flask import Flask, request
 from werkzeug.exceptions import HTTPException
 
 from app.utils.response import responder_error, responder_exito
+from db import asegurar_esquema, cargar_fixture_qr_prueba
 
 load_dotenv()
+
+# Usa DB_USER/DB_PASSWORD del entorno; no requiere ni ejecuta privilegios de root.
+if os.getenv("AUTO_MIGRATE", "true").lower() == "true":
+    asegurar_esquema()
+if os.getenv("AUTO_SEED", "false").lower() == "true":
+    cargar_fixture_qr_prueba()
 
 app = Flask(__name__)
 app.config.from_mapping(
     JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY"),
+    SUPER_ADMIN_EMAIL=os.getenv("SUPER_ADMIN_EMAIL", "cine_paradiso@admin.com").strip().lower(),
     PASSWORD_RESET_URL=os.getenv("PASSWORD_RESET_URL", "http://localhost:3000/auth/restablecer-contrasena"),
     PASSWORD_RESET_MAX_AGE=1800,
     SMTP_HOST=os.getenv("SMTP_HOST", "localhost"),

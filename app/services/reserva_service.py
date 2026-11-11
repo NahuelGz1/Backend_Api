@@ -1,8 +1,10 @@
 import hashlib
 import time
 from flask import current_app
-from app.repositories import compras_repository, auth_repository, funciones_repository
+from app.repositories import auth_repository, compras_repository, funciones_repository
 from app.services.email_service import enviar_correo_compra
+from datetime import datetime, timedelta
+
 from app.utils.qr import generar_codigo_qr
 from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR, ESTADO_ENTRADA_CANCELADA
 
@@ -22,26 +24,29 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
     if conflictos:
         raise ValueError(f"Las butacas {conflictos} ya se encuentran ocupadas.")
 
+    codigo_qr = hashlib.sha256(
+        f"compra-{id_usuario}-{id_funcion}-{time.time()}".encode()
+    ).hexdigest()[:LARGO_HASH_QR]
     entradas_data = []
     entradas_generadas_info = []
 
     for butaca in butacas:
-        hash_qr = hashlib.sha256(f"{id_funcion}-{butaca}-{id_usuario}-{time.time()}".encode()).hexdigest()[:LARGO_HASH_QR]
-
         entradas_data.append({
             "id_funcion": id_funcion,
             "numero_butaca": butaca,
             "precio": PRECIO_ENTRADA_FIJO,
-            "qr": hash_qr
+            "qr": codigo_qr
         })
 
         entradas_generadas_info.append({
             "numero_butaca": butaca,
-            "codigo_qr_texto": hash_qr,
-            "qr_imagen_base64": generar_codigo_qr(hash_qr)
+            "codigo_qr_texto": codigo_qr,
+            "qr_imagen_base64": generar_codigo_qr(codigo_qr) if butaca == butacas[0] else None
         })
 
-    id_compra = compras_repository.guardar_compra_completa(id_usuario, entradas_data, servicios)
+    id_compra = compras_repository.guardar_compra_completa(
+        id_usuario, codigo_qr, entradas_data, servicios
+    )
     try:
         usuario = auth_repository.obtener_usuario_por_id(id_usuario)
         funcion_info = funciones_repository.buscar_funcion_por_id(id_funcion)
@@ -64,6 +69,8 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
     return {
         "id_compra": id_compra,
         "mensaje": "Compra procesada exitosamente",
+        "codigo_qr_texto": codigo_qr,
+        "qr_imagen_base64": generar_codigo_qr(codigo_qr),
         "entradas": entradas_generadas_info
     }
 

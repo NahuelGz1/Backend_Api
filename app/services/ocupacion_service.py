@@ -9,12 +9,15 @@ from app.repositories.dashboard_repository import (
 from app.utils.dates import datetime_a_string
 
 
-def calcular_reporte_ocupacion() -> dict:
+def calcular_reporte_ocupacion(complejo=None) -> dict:
     peliculas_db = obtener_metricas_ocupacion_por_pelicula()
-    funciones_db = obtener_metricas_ocupacion_por_funcion()
-    resumen_db = obtener_resumen_general_ocupacion()
-    generos_db = obtener_ventas_por_genero()
-    franjas_db = obtener_ventas_por_franja_horaria()
+    funciones_db = obtener_metricas_ocupacion_por_funcion(complejo)
+    resumen_db = obtener_resumen_general_ocupacion(complejo)
+    if complejo:
+        ids = {f.get("pelicula_titulo") for f in funciones_db}
+        peliculas_db = [p for p in peliculas_db if p.get("pelicula_titulo") in ids]
+    generos_db = obtener_ventas_por_genero(complejo)
+    franjas_db = obtener_ventas_por_franja_horaria(complejo)
 
     resumen_general = {
         "total_vendidas": int(resumen_db.get("total_vendidas", 0)),

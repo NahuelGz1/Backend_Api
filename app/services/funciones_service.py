@@ -11,11 +11,17 @@ def _funcion_a_dict(fila: dict) -> dict:
     return {
         "id": fila["funcion_id"],
         "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
+        "activo": bool(fila.get("activo", True)),
+        "eliminada": bool(fila.get("eliminada", False)),
+        "pelicula_activa": bool(fila.get("pelicula_activa", True)),
+        "pelicula_eliminada": bool(fila.get("pelicula_eliminada", False)),
         "precio_entrada": PRECIO_ENTRADA_FIJO,
         "pelicula": {
             "id": fila["pelicula_id"],
             "titulo": fila["pelicula_titulo"],
             "duracion": fila["pelicula_duracion"],
+            "activa": bool(fila.get("pelicula_activa", True)),
+            "eliminada": bool(fila.get("pelicula_eliminada", False)),
         },
         "sala": {
             "id": fila["sala_id"],
@@ -43,8 +49,8 @@ def obtener_salas(local: str = None) -> list:
     ]
 
 
-def obtener_funciones() -> list:
-    filas = repositorio.listar_funciones()
+def obtener_funciones(incluir_inactivas: bool = False) -> list:
+    filas = repositorio.listar_funciones(incluir_inactivas)
     return [_funcion_a_dict(f) for f in filas]
 
 
@@ -74,6 +80,8 @@ def _buscar_pelicula_existente(id_pelicula):
     pelicula = peliculas_repository.buscar_por_id(id_pelicula)
     if pelicula is None:
         raise ValueError(f"No existe la película {id_pelicula}")
+    if not pelicula.get("activo", True) or pelicula.get("eliminada", False):
+        raise ValueError("Solo se pueden programar funciones para películas activas")
     return pelicula
 
 
@@ -170,3 +178,15 @@ def dar_baja_funcion(funcion_id):
 
     repositorio.eliminar_funcion(funcion_id)
     return {"id": funcion_id}
+
+
+def cambiar_estado_funcion(funcion_id, activo):
+    funcion = _buscar_funcion_existente(funcion_id)
+    if activo:
+        pelicula = peliculas_repository.buscar_por_id(funcion["pelicula_id"])
+        if pelicula is None or not pelicula.get("activo", True) or pelicula.get("eliminada", False):
+            raise ValueError(
+                "No se puede activar la función porque la película está inactiva o fue retirada del catálogo"
+            )
+    repositorio.cambiar_estado_funcion(funcion_id, activo)
+    return _funcion_a_dict(_buscar_funcion_existente(funcion_id))

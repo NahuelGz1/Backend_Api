@@ -5,18 +5,23 @@ def validar_acceso(codigo_qr: str) -> dict:
     if not codigo_qr:
         raise ValueError("El código QR no puede estar vacío.")
 
-    entrada = compras_repository.obtener_entrada_por_qr(codigo_qr)
+    entradas = compras_repository.obtener_entradas_por_qr(codigo_qr)
 
-    if not entrada:
+    if not entradas:
         raise ValueError("El código QR presentado no es válido o no existe.")
 
-    if entrada["estado"] == ESTADO_ENTRADA_UTILIZADA:
-        raise ValueError("Esta entrada ya fue ingresada previamente.")
+    estados = {entrada["estado"] for entrada in entradas}
+    if estados == {ESTADO_ENTRADA_UTILIZADA}:
+        raise ValueError("Esta compra ya fue ingresada previamente.")
+    if estados != {ESTADO_ENTRADA_COMPRADA}:
+        raise ValueError("La compra no está activa para ingreso.")
 
-    if entrada["estado"] != ESTADO_ENTRADA_COMPRADA:
-        raise ValueError(f"La entrada no está activa para ingreso (estado: {entrada['estado']}).")
-
-    compras_repository.actualizar_estado_entrada(entrada["id_entrada"], ESTADO_ENTRADA_UTILIZADA)
+    entrada = entradas[0]
+    compras_repository.actualizar_estado_entradas_de_compra(
+        entrada["id_compra"],
+        ESTADO_ENTRADA_COMPRADA,
+        ESTADO_ENTRADA_UTILIZADA,
+    )
 
     #obtenemos los servicios asociados a la misma compra
     servicios_asociados = compras_repository.obtener_servicios_por_compra(entrada["id_compra"])
@@ -26,8 +31,12 @@ def validar_acceso(codigo_qr: str) -> dict:
         "id_compra": entrada["id_compra"],
         "pelicula": entrada.get("pelicula"),
         "numero_butaca": entrada.get("numero_butaca"),
+        "butacas": [entrada["numero_butaca"] for entrada in entradas],
+        "fecha_hora": entrada.get("fecha_hora_proyeccion"),
+        "sala": entrada.get("sala"),
+        "complejo": entrada.get("local"),
         "estado_nuevo": ESTADO_ENTRADA_UTILIZADA,
-        "servicios_adicionales": servicios_asociados
+        "servicios_adicionales": servicios_asociados,
     }
 
 

@@ -1,5 +1,12 @@
 USE cine_paradiso;
 
+-- cuenta principal para habilitar otros administradores
+-- la contraseña corresponde a la configuracion inicial del proyecto
+INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES
+    ('Administrador principal', 'cine_paradiso@admin.com',
+     'scrypt:32768:8:1$LXnpLoSpUYChMpGa$b2c0abc74dc241baa84592f0e9495ce6c7313cea8e1f970d41fed2179139fb2fb65d2a5b2425371f7f83f5597c6dd4d3fce3901cfabe9bd433d35476d023f821', 'administrador')
+    ON DUPLICATE KEY UPDATE rol = 'administrador';
+
 -- 10 películas (los ids van del 1 al 10)
 INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero) VALUES
     ('Volver al Futuro', 'Un chico viaja al pasado en una máquina del tiempo.', 116, 'ATP', 'Ciencia ficción'),
@@ -47,3 +54,28 @@ INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion) VALUES
     (1, 5, '2026-12-06 17:00:00'),
     (7, 6, '2026-12-06 16:00:00'),
     (8, 6, '2026-12-06 19:30:00');
+
+-- Fixture de desarrollo para probar Validar QR con una compra completa.
+-- No se ejecuta en producción: este archivo se carga únicamente al preparar datos locales.
+SET @qr_prueba = 'QR-PRUEBA-CINE-PARADISO-2026';
+INSERT INTO compras (id_usuario, codigo_qr)
+SELECT id, @qr_prueba
+FROM usuarios
+WHERE email = 'cine_paradiso@admin.com'
+  AND NOT EXISTS (SELECT 1 FROM compras WHERE codigo_qr = @qr_prueba)
+LIMIT 1;
+
+SET @compra_prueba = (
+    SELECT id FROM compras WHERE codigo_qr = @qr_prueba LIMIT 1
+);
+INSERT IGNORE INTO entradas
+    (id_compra, id_funcion, numero_butaca, precio_historico, codigo_qr, estado)
+VALUES
+    (@compra_prueba, 1, 5, 10000.00, @qr_prueba, 'comprada'),
+    (@compra_prueba, 1, 6, 10000.00, @qr_prueba, 'comprada');
+
+INSERT IGNORE INTO detalles_servicios
+    (id_compra, id_servicio, cantidad, precio_historico, usado)
+VALUES
+    (@compra_prueba, 5, 1, 6000.00, FALSE),
+    (@compra_prueba, 6, 1, 15000.00, FALSE);

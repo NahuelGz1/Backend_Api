@@ -1,11 +1,14 @@
 from app.db import ejecutar_consulta, ejecutar_mutacion, obtener_conexion
 from app.utils.constantes import ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_CANCELADA
 
-def guardar_compra_completa(id_usuario: int, entradas_data: list, servicios_data: list = None) -> int:
+def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list, servicios_data: list = None) -> int:
     conexion = obtener_conexion()
     try:
         with conexion.cursor() as cursor:
-            cursor.execute("INSERT INTO compras (id_usuario) VALUES (%s)", (id_usuario,))
+            cursor.execute(
+                "INSERT INTO compras (id_usuario, codigo_qr) VALUES (%s, %s)",
+                (id_usuario, codigo_qr),
+            )
             id_compra = cursor.lastrowid
 
             sql_entrada = """
@@ -34,7 +37,7 @@ def guardar_compra_completa(id_usuario: int, entradas_data: list, servicios_data
 
 def obtener_entrada_por_id(entrada_id: int) -> dict | None:
     sql = """
-          SELECT e.id AS id_entrada, c.id_usuario, e.numero_butaca, e.codigo_qr, e.estado,
+          SELECT e.id AS id_entrada, c.id_usuario, c.codigo_qr, e.numero_butaca, e.estado,
                  f.fecha_hora_proyeccion, p.titulo AS pelicula, s.nombre AS sala, s.local, e.precio_historico
           FROM entradas e
                    JOIN compras c ON e.id_compra = c.id
@@ -47,24 +50,34 @@ def obtener_entrada_por_id(entrada_id: int) -> dict | None:
     return resultado[0] if resultado else None
 
 
-def obtener_entrada_por_qr(codigo_qr: str) -> dict | None:
+def obtener_entradas_por_qr(codigo_qr: str) -> list[dict]:
     sql = """
-          SELECT e.id AS id_entrada, c.id_usuario, e.numero_butaca, e.codigo_qr, e.estado,
-                 f.fecha_hora_proyeccion, p.titulo AS pelicula, s.nombre AS sala, e.precio_historico
+          SELECT e.id AS id_entrada, c.id_usuario, c.id AS id_compra,
+                 e.numero_butaca, e.codigo_qr, e.estado,
+                 f.fecha_hora_proyeccion, p.titulo AS pelicula,
+                 s.nombre AS sala, s.local, e.precio_historico
           FROM entradas e
                    JOIN compras c ON e.id_compra = c.id
                    JOIN funciones f ON e.id_funcion = f.id
                    JOIN peliculas p ON f.id_pelicula = p.id
                    JOIN salas s ON f.id_sala = s.id
-          WHERE e.codigo_qr = %s
+          WHERE c.codigo_qr = %s
           """
-    resultado = ejecutar_consulta(sql, (codigo_qr,))
-    return resultado[0] if resultado else None
+    return ejecutar_consulta(sql, (codigo_qr,))
 
 
 def actualizar_estado_entrada(entrada_id: int, nuevo_estado: str) -> int:
     sql = "UPDATE entradas SET estado = %s WHERE id = %s"
     return ejecutar_mutacion(sql, (nuevo_estado, entrada_id))
+
+
+def actualizar_estado_entradas_de_compra(id_compra: int, estado_actual: str, nuevo_estado: str) -> int:
+    sql = """
+          UPDATE entradas
+          SET estado = %s
+          WHERE id_compra = %s AND estado = %s
+          """
+    return ejecutar_mutacion(sql, (nuevo_estado, id_compra, estado_actual))
 
 
 def verificar_butaca_ocupada(id_funcion: int, numero_butaca: str) -> bool:
@@ -77,7 +90,8 @@ def verificar_butaca_ocupada(id_funcion: int, numero_butaca: str) -> bool:
 
 def obtener_servicios_por_compra(id_compra: int) -> list:
     sql = """
-          SELECT ds.id AS id_detalle, s.nombre, ds.cantidad, ds.usado
+          SELECT ds.id AS id_detalle, s.nombre, ds.cantidad, ds.usado,
+                 ds.precio_historico AS precio
           FROM detalles_servicios ds
                    JOIN servicios s ON ds.id_servicio = s.id
           WHERE ds.id_compra = %s \
@@ -87,7 +101,7 @@ def obtener_servicios_por_compra(id_compra: int) -> list:
 
 def marcar_servicio_usado(id_detalle: int) -> bool:
     sql = "UPDATE detalles_servicios SET usado = TRUE WHERE id = %s AND usado = FALSE"
-    filas_afectadas = ejecutar_comando(sql, (id_detalle,))
+    filas_afectadas = ejecutar_mutacion(sql, (id_detalle,))
     return filas_afectadas > 0
 
 #función para validar las 2 horas

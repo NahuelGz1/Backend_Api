@@ -52,6 +52,8 @@ def _pelicula_a_dict(fila: dict, funciones: list) -> dict:
         "duracion": fila["duracion"],
         "clasificacion": fila["clasificacion"],
         "genero": fila["genero"],
+        "activo": bool(fila.get("activo", True)),
+        "eliminada": bool(fila.get("eliminada", False)),
         "funciones": funciones,
     }
 
@@ -113,6 +115,29 @@ def crear_pelicula(datos: dict) -> dict:
     return pelicula
 
 
+def listar_peliculas_admin() -> list:
+    return [_pelicula_a_dict(fila, []) for fila in repositorio.listar_todas()]
+
+
+def cambiar_estado_pelicula(pelicula_id: int, activo: bool) -> dict:
+    pelicula = repositorio.buscar_por_id(pelicula_id)
+    if pelicula is None:
+        raise ValueError("Película no encontrada", 404)
+    repositorio.cambiar_estado(pelicula_id, activo)
+    pelicula["activo"] = activo
+    return _pelicula_a_dict(pelicula, [])
+
+
+def eliminar_pelicula(pelicula_id: int) -> dict:
+    pelicula = repositorio.buscar_por_id(pelicula_id)
+    if pelicula is None:
+        raise ValueError("Película no encontrada", 404)
+    repositorio.eliminar(pelicula_id)
+    pelicula["activo"] = False
+    pelicula["eliminada"] = True
+    return _pelicula_a_dict(pelicula, [])
+
+
 # ------- Búsqueda en TMDB (API externa) ---------------------------
 
 def buscar_peliculas_en_tmdb(titulo: str) -> list:
@@ -141,4 +166,3 @@ def obtener_proximos_estrenos() -> list:
         return estrenos_formateados
     except Exception:
         return []
-

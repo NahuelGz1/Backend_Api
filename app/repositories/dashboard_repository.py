@@ -33,7 +33,7 @@ def obtener_metricas_ocupacion_por_pelicula() -> list[dict]:
     return ejecutar_consulta(query)
 
 
-def obtener_metricas_ocupacion_por_funcion() -> list[dict]:
+def obtener_metricas_ocupacion_por_funcion(local=None) -> list[dict]:
     """
     calcula la ocupacion individual de cada funcion especifica,
     incluyendo entradas canceladas e ingresos monetarios.
@@ -49,30 +49,34 @@ def obtener_metricas_ocupacion_por_funcion() -> list[dict]:
                 COUNT(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.id END) AS butacas_ocupadas,
                 COUNT(CASE WHEN e.estado = 'cancelada' THEN e.id END) AS butacas_canceladas,
                 s.capacidad - COUNT(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.id END) AS butacas_libres,
-                COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.precio_historico_historico ELSE 0 END), 0) AS total_ingresos
+                COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.precio_historico ELSE 0 END), 0) AS total_ingresos
             FROM funciones f
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
                      INNER JOIN salas s ON f.id_sala = s.id
                      LEFT JOIN entradas e ON f.id = e.id_funcion
+            {where}
             GROUP BY f.id, f.fecha_hora_proyeccion, p.titulo, s.nombre, s.local, s.capacidad
             ORDER BY f.fecha_hora_proyeccion DESC
             """
-    return ejecutar_consulta(query)
+    return ejecutar_consulta(query.format(where="WHERE s.local = %s" if local else ""), (local,) if local else None)
 
 
-def obtener_resumen_general_ocupacion() -> dict:
+def obtener_resumen_general_ocupacion(local=None) -> dict:
     """
     calcula los totales (vendidas, canceladas, generadas e ingresos totales).
     """
     query = """
             SELECT
-                COUNT(CASE WHEN estado IN ('comprada', 'utilizada') THEN 1 END) AS total_vendidas,
-                COUNT(CASE WHEN estado = 'cancelada' THEN 1 END) AS total_canceladas,
+                COUNT(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN 1 END) AS total_vendidas,
+                COUNT(CASE WHEN e.estado = 'cancelada' THEN 1 END) AS total_canceladas,
                 COUNT(*) AS total_generadas,
-                COALESCE(SUM(CASE WHEN estado IN ('comprada', 'utilizada') THEN precio ELSE 0 END), 0) AS total_ingresos
-            FROM entradas
+                COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN e.precio_historico ELSE 0 END), 0) AS total_ingresos
+            FROM entradas e
+            INNER JOIN funciones f ON e.id_funcion = f.id
+            INNER JOIN salas s ON f.id_sala = s.id
+            {where}
             """
-    resultados = ejecutar_consulta(query)
+    resultados = ejecutar_consulta(query.format(where="WHERE s.local = %s" if local else ""), (local,) if local else None)
     return resultados[0] if resultados else {
         "total_vendidas": 0,
         "total_canceladas": 0,
@@ -81,7 +85,7 @@ def obtener_resumen_general_ocupacion() -> dict:
     }
 
 
-def obtener_ventas_por_genero() -> list[dict]:
+def obtener_ventas_por_genero(local=None) -> list[dict]:
     """
     calcula entradas vendidas e ingresos agrupados por genero
     """
@@ -92,15 +96,17 @@ def obtener_ventas_por_genero() -> list[dict]:
                 COALESCE(SUM(e.precio_historico), 0) AS total_ingresos
             FROM entradas e
                      INNER JOIN funciones f ON e.id_funcion = f.id
+                     INNER JOIN salas s ON f.id_sala = s.id
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
             WHERE e.estado IN ('comprada', 'utilizada')
+              {local_where}
             GROUP BY p.genero
             ORDER BY total_entradas DESC
             """
-    return ejecutar_consulta(query)
+    return ejecutar_consulta(query.format(local_where="AND s.local = %s" if local else ""), (local,) if local else None)
 
 
-def obtener_ventas_por_franja_horaria() -> list[dict]:
+def obtener_ventas_por_franja_horaria(local=None) -> list[dict]:
     """
     calcula entradas vendidas e ingresos agrupados por hora de proyeccion
     """
@@ -111,8 +117,10 @@ def obtener_ventas_por_franja_horaria() -> list[dict]:
                 COALESCE(SUM(e.precio_historico), 0) AS total_ingresos
             FROM entradas e
                 INNER JOIN funciones f ON e.id_funcion = f.id
+            INNER JOIN salas s ON f.id_sala = s.id
             WHERE e.estado IN ('comprada', 'utilizada')
+              {local_where}
             GROUP BY HOUR(f.fecha_hora_proyeccion)
             ORDER BY hora ASC
             """
-    return ejecutar_consulta(query)
+    return ejecutar_consulta(query.format(local_where="AND s.local = %s" if local else ""), (local,) if local else None)

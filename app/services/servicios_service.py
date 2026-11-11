@@ -8,6 +8,8 @@ def _servicio_a_dict(fila: dict) -> dict:
         "nombre": fila["nombre"],
         "descripcion": fila["descripcion"],
         "precio": float(fila["precio"]),
+        "categoria": fila.get("categoria", "Snacks"),
+        "activo": bool(fila.get("activo", True)),
     }
 
 
@@ -15,11 +17,15 @@ def _validar(datos: dict) -> dict:
     servicio, errores = validador.validar_servicio(datos)
     if errores:
         raise ValueError("Hay datos inválidos en la solicitud")
+    categoria = datos.get("categoria", "Snacks")
+    if categoria not in ("Bebidas", "Pochoclos", "Snacks", "Mejoras de experiencia"):
+        raise ValueError("La categoría del servicio no es válida")
+    servicio["categoria"] = categoria
     return servicio
 
 
-def listar_servicios() -> list:
-    filas = repositorio.listar()
+def listar_servicios(incluir_inactivos: bool = False) -> list:
+    filas = repositorio.listar(incluir_inactivos)
     return [_servicio_a_dict(fila) for fila in filas]
 
 
@@ -54,3 +60,10 @@ def eliminar_servicio(servicio_id: int) -> dict:
     obtener_servicio(servicio_id)
     repositorio.eliminar(servicio_id)
     return {"id": servicio_id}
+
+
+def cambiar_estado_servicio(servicio_id: int, activo: bool) -> dict:
+    servicio = obtener_servicio(servicio_id)
+    repositorio.cambiar_estado(servicio_id, activo)
+    servicio["activo"] = activo
+    return servicio

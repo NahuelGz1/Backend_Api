@@ -1,14 +1,15 @@
 from flask import Blueprint, request
 from app.services import servicios_service
 from app.utils.decorators import requiere_administrador, requiere_autenticacion
-from app.utils.response import responder_exito
+from app.utils.response import responder_error, responder_exito
 
 servicios_bp = Blueprint("servicios", __name__)
 
 
 @servicios_bp.route("", methods=["GET"])
 def listar_servicios():
-    servicios = servicios_service.listar_servicios()
+    incluir_inactivos = request.args.get("incluir_inactivos") == "1"
+    servicios = servicios_service.listar_servicios(incluir_inactivos)
     return responder_exito(
         data=servicios,
         message="Servicios obtenidos exitosamente"
@@ -49,3 +50,15 @@ def desactivar_servicio(servicio_id: int):
         data=resultado,
         message="Servicio eliminado exitosamente"
     )
+
+
+@servicios_bp.route("/<int:servicio_id>/estado", methods=["PATCH"])
+@requiere_autenticacion
+@requiere_administrador
+def cambiar_estado_servicio(servicio_id: int):
+    datos = request.get_json(silent=True) or {}
+    activo = datos.get("activo")
+    if not isinstance(activo, bool):
+        return responder_error(code=400, message="El estado del servicio no es válido")
+    resultado = servicios_service.cambiar_estado_servicio(servicio_id, activo)
+    return responder_exito(data=resultado, message="Estado del servicio actualizado")

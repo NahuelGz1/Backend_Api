@@ -105,6 +105,7 @@ def obtener_historial_servicios_por_usuario(id_usuario: int) -> list:
     query_nuevo = """
             SELECT
                 ds.id AS id_compra_servicio,
+                c.id AS id_compra,
                 ds.cantidad,
                 c.fecha_hora AS fecha_hora_compra,
                 s.id AS id_servicio,
@@ -123,6 +124,7 @@ def obtener_historial_servicios_por_usuario(id_usuario: int) -> list:
         query_viejo = """
             SELECT
                 cs.id AS id_compra_servicio,
+                NULL AS id_compra,
                 1 AS cantidad,
                 cs.fecha_hora_compra,
                 s.id AS id_servicio,

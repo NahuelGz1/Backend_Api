@@ -80,7 +80,6 @@ CREATE TABLE entradas (
     precio_historico DECIMAL(10, 2) NOT NULL,
     codigo_qr VARCHAR(255) NOT NULL,
     estado VARCHAR(20) DEFAULT 'comprada',
-    UNIQUE KEY butaca_unica_por_funcion (id_funcion, numero_butaca),
     FOREIGN KEY (id_compra) REFERENCES compras(id),
     FOREIGN KEY (id_funcion) REFERENCES funciones(id)
 );

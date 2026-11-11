@@ -172,3 +172,28 @@ def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
             ORDER BY f.fecha_hora_proyeccion DESC \
             """
         return ejecutar_consulta(query_viejo, (id_usuario,))
+
+
+def actualizar_usuario(id_usuario: int, datos: dict) -> int:
+    """Actualiza únicamente las columnas existentes (nombre, email) de un usuario."""
+    campos_permitidos = ["nombre", "email"]
+    asignaciones = []
+    valores = []
+
+    for campo in campos_permitidos:
+        if campo in datos and datos[campo]:
+            asignaciones.append(f"{campo} = %s")
+            valores.append(datos[campo])
+
+    if not asignaciones:
+        return 0
+
+    sql = f"UPDATE usuarios SET {', '.join(asignaciones)} WHERE id = %s"
+    valores.append(id_usuario)
+
+    try:
+        return ejecutar_mutacion(sql, tuple(valores))
+    except IntegrityError as error:
+        if error.args[0] == 1062:
+            raise ValueError("El correo electrónico ya se encuentra registrado.") from error
+        raise

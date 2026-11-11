@@ -8,6 +8,7 @@ from app.repositories.auth_repository import (
     obtener_password_hash_por_id,
     obtener_credenciales_por_id,
     restablecer_password,
+    actualizar_usuario,
 )
 import hmac
 from flask import current_app
@@ -277,3 +278,33 @@ def cambiar_contrasena_usuario(id_usuario: int, contrasena_actual: str, contrase
 
     if filas_actualizadas != 1:
         raise ValueError("No se pudo actualizar la contraseña", 500)
+
+
+def actualizar_perfil_usuario(id_usuario: int, datos: dict) -> dict:
+    """
+    Verifica que el usuario exista, valida los campos y actualiza su perfil.
+    """
+    usuario = obtener_usuario_por_id(id_usuario)
+    if not usuario:
+        raise ValueError("Usuario no encontrado")
+
+    if not isinstance(datos, dict) or not datos:
+        raise ValueError("No se enviaron datos para actualizar")
+
+    datos_a_actualizar = {}
+
+    if "nombre" in datos and datos["nombre"]:
+        datos_a_actualizar["nombre"] = validar_nombre(datos["nombre"])
+
+    if "email" in datos and datos["email"]:
+        email_nuevo = validar_email(datos["email"])
+        existente = buscar_por_email(email_nuevo)
+        if existente and existente["id"] != id_usuario:
+            raise ValueError("El correo electrónico ya se encuentra registrado.")
+        datos_a_actualizar["email"] = email_nuevo
+
+    if not datos_a_actualizar:
+        raise ValueError("No se ingresaron datos válidos para actualizar")
+
+    actualizar_usuario(id_usuario, datos_a_actualizar)
+    return consultar_perfil_usuario(id_usuario)

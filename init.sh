@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+cd "$(dirname "$0")"
+
 echo "=== 1. Verificando entorno virtual ==="
 if [ ! -d "venv" ]; then
     echo "No existe el entorno virtual(venv). Creando..."
@@ -15,13 +17,14 @@ source venv/bin/activate
 echo "=== 3. Actualizando pip ==="
 pip install --upgrade pip
 
-echo "=== 4. Instalando dependencias de requirement.txt ==="
+echo "=== 4. Instalando dependencias de requirements.txt ==="
 pip install -r requirements.txt
 
-echo "=== 5. Verificando archivo de variables de entorno virtual(.env) ==="
+echo "=== 5. Verificando archivo de variables de entorno (.env) ==="
 if [ ! -f ".env" ]; then
-    echo "No existe archivo '.env'. Creando a partir de '.env.example'"
+    echo "No existe archivo '.env'. Creando a partir de '.env.example'..."
     cp .env.example .env
+    echo "Asegúrate de editar el archivo '.env' con tu usuario y contraseña de MySQL y tu TMDB_API_KEY."
 else
     echo "Ya existe el archivo '.env', no se modifica ninguna configuracion"
 fi

@@ -12,7 +12,7 @@ from app.repositories.auth_repository import (
 import hmac
 from flask import current_app
 from itsdangerous import BadData, URLSafeTimedSerializer
-from app.services.email_service import enviar_recuperacion
+from app.services.email_service import enviar_correo_recuperacion
 from app.validators.auth_validator import validar_email, validar_nombre, validar_password
 from app.utils.dates import datetime_a_string
 from app.utils.security import (
@@ -80,7 +80,7 @@ def solicitar_recuperacion(email):
         token = URLSafeTimedSerializer(clave_secreta(), salt="recuperacion-password").dumps({
             "id": usuario["id"], "ver": version_credencial(usuario["password_hash"]),
         })
-        enviar_recuperacion(email, token)
+        enviar_correo_recuperacion(email, token)
 
 
 def recuperar_password(token, password):

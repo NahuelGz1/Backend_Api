@@ -3,12 +3,12 @@ set -e
 
 cd "$(dirname "$0")"
 
-echo "=== 1. Verificando entorno virtual ==="
+echo "=== 1. Verificando entorno virtual (venv) ==="
 if [ ! -d "venv" ]; then
-    echo "No existe el entorno virtual(venv). Creando..."
+    echo "No existe el entorno virtual (venv). Creando..."
     python3 -m venv venv
 else
-    echo "Ya existe el entorno virtual(venv)"
+    echo "Ya existe el entorno virtual (venv)"
 fi
 
 echo "=== 2. Activando entorno virtual ==="

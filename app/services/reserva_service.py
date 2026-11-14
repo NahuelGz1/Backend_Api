@@ -108,6 +108,11 @@ def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
         entrada["qr_imagen_base64"] = qr_compra_base64
         entrada.pop("id_usuario", None)
     compra["qr_imagen_base64"] = qr_compra_base64
+    compra["funcion"] = {
+        "pelicula": {"titulo": primera["pelicula"], "poster_url": primera["poster"]},
+        "fecha_hora_proyeccion": str(primera["fecha_hora_proyeccion"]),
+        "sala": {"nombre": primera["sala"], "local": primera["local"]},
+    }
     butacas_numeros = [e["numero_butaca"] for e in compra["entradas"]]
     compra["reserva"] = {
         "id": compra_id,

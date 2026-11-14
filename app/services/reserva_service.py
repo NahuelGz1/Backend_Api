@@ -1,6 +1,7 @@
 import hashlib
 import time
 from flask import current_app
+from app.utils.validators import validar_email
 from app.repositories import auth_repository, compras_repository, funciones_repository
 from app.services.email_service import enviar_correo_compra
 from datetime import datetime, timedelta
@@ -9,6 +10,12 @@ from app.utils.qr import generar_codigo_qr
 from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR, ESTADO_ENTRADA_CANCELADA
 
 def procesar_compra(datos: dict, id_usuario: int) -> dict:
+    email_contacto = datos.get("email_contacto")
+    if email_contacto:
+        try:
+            email_contacto = validar_email(email_contacto)
+        except ValueError:
+            raise ValueError("El email de contacto proporcionado no es válido.")
     id_funcion = datos.get("id_funcion")
     butacas = datos.get("butacas")
     servicios = datos.get("servicios", [])
@@ -50,10 +57,11 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
     try:
         usuario = auth_repository.obtener_usuario_por_id(id_usuario)
         funcion_info = funciones_repository.buscar_funcion_por_id(id_funcion)
-        if usuario and usuario.get("email"):
+        destinatario = email_contacto or (usuario.get("email") if usuario else None)
+        if destinatario:
             detalles_email = {
-                "nombre": usuario.get("nombre", "Cliente"),
-                "email": usuario.get("email"),
+                "nombre": usuario.get("nombre", "Cliente") if usuario else "Cliente",
+                "email": destinatario,
                 "codigo_operacion": f"CP-{id_compra}",
                 "pelicula_titulo": funcion_info.get("pelicula_titulo") if funcion_info else "Película",
                 "pelicula_poster": funcion_info.get("pelicula_poster") if funcion_info else "",
@@ -62,7 +70,7 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
                 "butacas_resumen": f"Butacas: {', '.join(str(b) for b in butacas)}",
                 "entradas": entradas_generadas_info,
             }
-            enviar_correo_compra(usuario["email"], detalles_email)
+            enviar_correo_compra(destinatario, detalles_email)
     except Exception as e:
         current_app.logger.error("Error al enviar correo de compra: %s", e)
 

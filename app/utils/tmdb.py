@@ -81,17 +81,20 @@ def obtener_proximos_estrenos():
         api_key,
         {
             "sort_by": "popularity.desc",
-            "primary_release_date.lte": "2024-12-31",
+            "primary_release_date.lte": "2025-12-31",
             "vote_count.gte": "100",
         },
     )
     resultados_crudos = datos.get("results", [])
 
     resultados_formateados = []
-    for resultado in resultados_crudos[:12]:  # Limitamos a los primeros 12 resultados
-        resultados_formateados.append(_formatear_resultado_tmdb(resultado, nombres_de_generos))
+    for resultado in resultados_crudos:
+        # Asegurar que solo aparezcan películas con fecha de estreno anterior a 2026
+        fecha_estreno = resultado.get("release_date")
+        if not fecha_estreno or fecha_estreno < "2026-01-01":
+            resultados_formateados.append(_formatear_resultado_tmdb(resultado, nombres_de_generos))
 
-    return resultados_formateados
+    return resultados_formateados[:12]
 
 
 def buscar_peliculas(titulo):

@@ -82,6 +82,23 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
         "entradas": entradas_generadas_info
     }
 
+LETRAS_FILAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+def ubicacion_butaca(numero_butaca: int, columnas: int = 10) -> str:
+    numero = int(numero_butaca)
+    idx_fila = (numero - 1) // columnas
+    fila = LETRAS_FILAS[idx_fila] if idx_fila < len(LETRAS_FILAS) else str(idx_fila)
+    col = ((numero - 1) % columnas) + 1
+    return fila, col
+
+def texto_butacas(numeros_butacas: list[int]) -> str:
+    if not numeros_butacas:
+        return "Sin butacas asignadas"
+    etiquetas = [f"{ubicacion_butaca(b)[0]}{ubicacion_butaca(b)[1]}" for b in sorted(numeros_butacas)]
+    if len(etiquetas) == 1:
+        return f"Butaca {etiquetas[0]}"
+    return f"Butacas: {', '.join(etiquetas[:-1])} y {etiquetas[-1]}"
+
 def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
     id_usuario = int(id_usuario)
     compra = compras_repository.obtener_compra_completa(compra_id)
@@ -92,18 +109,25 @@ def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
         raise PermissionError("No tienes permiso para ver el detalle de esta entrada.")
 
     primera = compra["entradas"][0]
+    codigo_compra = compra["compra"]["codigo_qr"]
+    qr_compra_base64 = generar_codigo_qr(codigo_compra)
     for entrada in compra["entradas"]:
         entrada["fecha_hora_proyeccion"] = str(entrada["fecha_hora_proyeccion"])
-        entrada["qr_imagen_base64"] = generar_codigo_qr(entrada["codigo_qr"])
+        entrada["qr_imagen_base64"] = qr_compra_base64
         entrada.pop("id_usuario", None)
+    compra["qr_imagen_base64"] = qr_compra_base64
     compra["funcion"] = {
         "pelicula": {"titulo": primera["pelicula"], "poster_url": primera["poster"]},
         "fecha_hora_proyeccion": str(primera["fecha_hora_proyeccion"]),
         "sala": {"nombre": primera["sala"], "local": primera["local"]},
     }
+    butacas_numeros = [e["numero_butaca"] for e in compra["entradas"]]
     compra["reserva"] = {
         "id": compra_id,
         "codigo": f"CP-{compra_id}",
+        "codigo_qr": codigo_compra,
+        "qr_imagen_base64": qr_compra_base64,
+        "butacas_texto": texto_butacas(butacas_numeros),
         "estado": "cancelada" if all(e["estado"] == ESTADO_ENTRADA_CANCELADA for e in compra["entradas"]) else "confirmada",
         "entradas": compra["entradas"],
     }
@@ -115,11 +139,14 @@ def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
     compra.pop("entradas")
     compra.pop("servicios")
     compra["reserva"]["entradas"] = [
-        {**entrada, "fila": "", "numero": entrada["numero_butaca"]}
+        {**entrada,
+            "fila": ubicacion_butaca(entrada["numero_butaca"])[0],
+            "numero": ubicacion_butaca(entrada["numero_butaca"])[1],
+            "codigo_butaca": f"{ubicacion_butaca(entrada['numero_butaca'])[0]}{ubicacion_butaca(entrada['numero_butaca'])[1]}",
+        }
         for entrada in compra["reserva"]["entradas"]
     ]
     return compra
-
 def cancelar_compra(compra_id: int, id_usuario: int) -> dict:
     id_usuario = int(id_usuario)
     datos_compra = compras_repository.obtener_datos_resumen_compra(compra_id)

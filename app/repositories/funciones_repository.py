@@ -60,6 +60,7 @@ def buscar_funcion_por_id(funcion_id: int) -> dict | None:
               f.eliminada,
               p.id AS pelicula_id,
               p.titulo AS pelicula_titulo,
+              p.poster AS pelicula_poster,
               p.duracion AS pelicula_duracion,
               p.activo AS pelicula_activa,
               p.eliminada AS pelicula_eliminada,

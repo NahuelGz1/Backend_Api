@@ -8,25 +8,32 @@ servicios_bp = Blueprint("servicios", __name__)
 
 @servicios_bp.route("", methods=["GET"])
 def listar_servicios():
-    incluir_inactivos = request.args.get("incluir_inactivos") == "1"
-    servicios = servicios_service.listar_servicios(incluir_inactivos)
-    return responder_exito(
-        data=servicios,
-        message="Servicios obtenidos exitosamente"
-    )
-
+    try:
+        incluir_inactivos = request.args.get("incluir_inactivos") == "1"
+        servicios = servicios_service.listar_servicios(incluir_inactivos)
+        return responder_exito(
+            data=servicios,
+            message="Servicios obtenidos exitosamente"
+        )
+    except Exception as e:
+        return responder_error(code=500, message="Error al obtener los servicios")
 
 @servicios_bp.route("", methods=["POST"])
 @requiere_autenticacion
 @requiere_administrador
 def crear_servicio():
     datos = request.get_json(silent=True) or {}
-    servicio = servicios_service.crear_servicio(datos)
-    return responder_exito(
-        data=servicio,
-        message="Servicio creado exitosamente",
-        status_code=201
-    )
+    try:
+        servicio = servicios_service.crear_servicio(datos)
+        return responder_exito(
+            data=servicio,
+            message="Servicio creado exitosamente",
+            status_code=201
+        )
+    except ValueError as error:
+        return responder_error(code=400, message=str(error))
+    except Exception as e:
+        return responder_error(code=500, message="Error al crear el servicio")
 
 
 @servicios_bp.route("/<int:servicio_id>", methods=["PUT"])
@@ -34,22 +41,34 @@ def crear_servicio():
 @requiere_administrador
 def modificar_servicio(servicio_id: int):
     datos = request.get_json(silent=True) or {}
-    servicio = servicios_service.modificar_servicio(servicio_id, datos)
-    return responder_exito(
-        data=servicio,
-        message="Servicio modificado exitosamente"
-    )
+    try:
+        servicio = servicios_service.modificar_servicio(servicio_id, datos)
+        return responder_exito(
+            data=servicio,
+            message="Servicio modificado exitosamente"
+        )
+    except ValueError as error:
+        codigo = 404 if "no existe" in str(error).lower() else 400
+        return responder_error(code=codigo, message=str(error))
+    except Exception as e:
+        return responder_error(code=500, message="Error interno al modificar el servicio")
 
 
 @servicios_bp.route("/<int:servicio_id>", methods=["DELETE"])
 @requiere_autenticacion
 @requiere_administrador
 def desactivar_servicio(servicio_id: int):
-    resultado = servicios_service.eliminar_servicio(servicio_id)
-    return responder_exito(
+    try:
+        resultado = servicios_service.eliminar_servicio(servicio_id)
+        return responder_exito(
         data=resultado,
         message="Servicio eliminado exitosamente"
     )
+    except ValueError as error:
+        codigo = 404 if "no existe" in str(error).lower() else 400
+        return responder_error(code=codigo, message=str(error))
+    except Exception as e:
+        return responder_error(code=500, message="Error interno al eliminar el servicio")
 
 
 @servicios_bp.route("/<int:servicio_id>/estado", methods=["PATCH"])
@@ -60,5 +79,11 @@ def cambiar_estado_servicio(servicio_id: int):
     activo = datos.get("activo")
     if not isinstance(activo, bool):
         return responder_error(code=400, message="El estado del servicio no es válido")
-    resultado = servicios_service.cambiar_estado_servicio(servicio_id, activo)
-    return responder_exito(data=resultado, message="Estado del servicio actualizado")
+    try:
+        resultado = servicios_service.cambiar_estado_servicio(servicio_id, activo)
+        return responder_exito(data=resultado, message="Estado del servicio actualizado")
+    except ValueError as error:
+        codigo = 404 if "no existe" in str(error).lower() else 400
+        return responder_error(code=codigo, message=str(error))
+    except Exception as e:
+        return responder_error(code=500, message="Error interno al cambiar el estado del servicio")

@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from app.services import peliculas_service
 from app.utils.decorators import requiere_administrador, requiere_autenticacion
-from app.utils.response import responder_error, responder_exito
+from app.utils.response import responder_error, responder_exito, responder_error_de_validacion
 
 peliculas_bp = Blueprint("peliculas", __name__)
 
@@ -39,7 +39,7 @@ def cambiar_estado_pelicula(pelicula_id):
             message="Estado de la película actualizado",
         )
     except ValueError as error:
-        return responder_error(code=error.args[1] if len(error.args) > 1 else 404, message=str(error))
+        return responder_error_de_validacion(error, 404)
 
 
 @peliculas_bp.route("/<int:pelicula_id>", methods=["DELETE"])
@@ -52,7 +52,7 @@ def eliminar_pelicula(pelicula_id):
             message="Película retirada del catálogo",
         )
     except ValueError as error:
-        return responder_error(code=error.args[1] if len(error.args) > 1 else 404, message=str(error))
+        return responder_error_de_validacion(error, 404)
 
 
 @peliculas_bp.route("/<int:pelicula_id>", methods=["GET"])
@@ -92,8 +92,7 @@ def crear_pelicula_local():
             data=pelicula, message="Película creada exitosamente", status_code=201
         )
     except ValueError as ve:
-        msg = ve.args[0] if ve.args else str(ve)
-        return responder_error(code=400, message=str(msg))
+        return responder_error_de_validacion(ve)
     except Exception as e:
         return responder_error(
             code=500, message=str(e)

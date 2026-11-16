@@ -34,12 +34,15 @@ def _completar_datos_faltantes_con_tmdb(pelicula: dict):
 # ----------- Películas propias --------------------------------------
 
 def _funcion_a_dict(fila: dict) -> dict:
+    butacas_libres = max(int(fila["capacidad"] or 0) - int(fila.get("entradas_activas") or 0), 0)
     return {
         "id": fila["id"],
         "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
         "sala": fila["sala"],
         "local": fila["local"],
         "capacidad": fila["capacidad"],
+        "butacas_libres": butacas_libres,
+        "agotada": butacas_libres == 0,
     }
 
 
@@ -84,9 +87,9 @@ def obtener_cartelera() -> list:
 
 
 def obtener_pelicula(pelicula_id: int) -> dict:
-    """Una película con sus funciones vigentes. Lanza ValueError 404 si no existe."""
+    """Una película con sus funciones vigentes. Lanza ValueError 404 si no existe o no está en cartelera."""
     pelicula = repositorio.buscar_por_id(pelicula_id)
-    if pelicula is None:
+    if pelicula is None or not pelicula.get("activo", True) or pelicula.get("eliminada", False):
         raise ValueError(f"No existe la película {pelicula_id}", 404)
 
     # revisa tmdb al vuelo
@@ -123,6 +126,8 @@ def cambiar_estado_pelicula(pelicula_id: int, activo: bool) -> dict:
     pelicula = repositorio.buscar_por_id(pelicula_id)
     if pelicula is None:
         raise ValueError("Película no encontrada", 404)
+    if pelicula.get("eliminada", False):
+        raise ValueError("La película fue retirada del catálogo y no se puede volver a activar", 409)
     repositorio.cambiar_estado(pelicula_id, activo)
     pelicula["activo"] = activo
     return _pelicula_a_dict(pelicula, [])
@@ -130,7 +135,7 @@ def cambiar_estado_pelicula(pelicula_id: int, activo: bool) -> dict:
 
 def eliminar_pelicula(pelicula_id: int) -> dict:
     pelicula = repositorio.buscar_por_id(pelicula_id)
-    if pelicula is None:
+    if pelicula is None or pelicula.get("eliminada", False):
         raise ValueError("Película no encontrada", 404)
     repositorio.eliminar(pelicula_id)
     pelicula["activo"] = False

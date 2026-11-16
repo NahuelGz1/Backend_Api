@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from app.db import ejecutar_consulta, ejecutar_mutacion
+from app.utils.constantes import ESTADO_ENTRADA_CANCELADA
 
 
 def _ahora() -> datetime:
@@ -12,12 +13,18 @@ def _sql_funciones_vigentes(solo_una_pelicula: bool = False) -> str:
     """Arma la consulta SQL para obtener funciones vigentes."""
     sql = """
           SELECT funciones.id, funciones.id_pelicula, funciones.fecha_hora_proyeccion,
-                 salas.nombre AS sala, salas.local, salas.capacidad
+                 salas.nombre AS sala, salas.local, salas.capacidad,
+                 (
+                     SELECT COUNT(*)
+                     FROM entradas
+                     WHERE entradas.id_funcion = funciones.id AND entradas.estado != '{cancelada}'
+                 ) AS entradas_activas
           FROM funciones
                    JOIN salas ON salas.id = funciones.id_sala
           WHERE funciones.activo = TRUE
+            AND funciones.eliminada = FALSE
             AND funciones.fecha_hora_proyeccion > %s \
-          """
+          """.format(cancelada=ESTADO_ENTRADA_CANCELADA)
     if solo_una_pelicula:
         sql += " AND funciones.id_pelicula = %s"
 

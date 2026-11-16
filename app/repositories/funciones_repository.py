@@ -25,34 +25,8 @@ def listar_salas(local: str | None = None) -> list[dict]:
     return ejecutar_consulta(sql, tuple(parametros))
 
 
-def listar_funciones(incluir_inactivas: bool = False) -> list[dict]:
-    sql = """
-          SELECT
-              f.id AS funcion_id,
-              f.fecha_hora_proyeccion,
-              f.activo,
-              f.eliminada,
-              p.id AS pelicula_id,
-              p.titulo AS pelicula_titulo,
-              p.duracion AS pelicula_duracion,
-              p.activo AS pelicula_activa,
-              p.eliminada AS pelicula_eliminada,
-              s.id AS sala_id,
-              s.nombre AS sala_nombre,
-              s.local AS sala_local
-          FROM funciones f
-                   JOIN peliculas p ON p.id = f.id_pelicula
-                   JOIN salas s ON s.id = f.id_sala
-          """
-    sql += " WHERE f.eliminada = FALSE"
-    if not incluir_inactivas:
-        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE"
-    sql += " ORDER BY f.fecha_hora_proyeccion ASC"
-    return ejecutar_consulta(sql)
-
-
-def buscar_funcion_por_id(funcion_id: int) -> dict | None:
-    sql = """
+# columnas comunes de una funcion, con la capacidad de la sala y las entradas activas
+SELECT_FUNCION = """
           SELECT
               f.id AS funcion_id,
               f.fecha_hora_proyeccion,
@@ -66,13 +40,34 @@ def buscar_funcion_por_id(funcion_id: int) -> dict | None:
               p.eliminada AS pelicula_eliminada,
               s.id AS sala_id,
               s.nombre AS sala_nombre,
-              s.local AS sala_local
+              s.local AS sala_local,
+              s.capacidad AS sala_capacidad,
+              (
+                  SELECT COUNT(*)
+                  FROM entradas e
+                  WHERE e.id_funcion = f.id AND e.estado != %s
+              ) AS entradas_activas
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
                    JOIN salas s ON s.id = f.id_sala
-          WHERE f.id = %s;
           """
-    filas = ejecutar_consulta(sql, (funcion_id,))
+
+
+def listar_funciones(incluir_inactivas: bool = False, desde=None) -> list[dict]:
+    sql = SELECT_FUNCION + " WHERE f.eliminada = FALSE"
+    parametros = [ESTADO_ENTRADA_CANCELADA]
+    if not incluir_inactivas:
+        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE"
+    if desde is not None:
+        sql += " AND f.fecha_hora_proyeccion > %s"
+        parametros.append(desde)
+    sql += " ORDER BY f.fecha_hora_proyeccion ASC"
+    return ejecutar_consulta(sql, tuple(parametros))
+
+
+def buscar_funcion_por_id(funcion_id: int) -> dict | None:
+    sql = SELECT_FUNCION + " WHERE f.id = %s;"
+    filas = ejecutar_consulta(sql, (ESTADO_ENTRADA_CANCELADA, funcion_id))
     return filas[0] if filas else None
 
 
@@ -95,7 +90,7 @@ def listar_funciones_de_sala(sala_id: int) -> list[dict]:
               p.duracion AS pelicula_duracion
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
-          WHERE f.id_sala = %s
+          WHERE f.id_sala = %s AND f.eliminada = FALSE
           ORDER BY f.fecha_hora_proyeccion ASC;
           """
     return ejecutar_consulta(sql, (sala_id,))

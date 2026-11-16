@@ -7,6 +7,7 @@ from app.repositories.dashboard_repository import (
     obtener_ventas_por_franja_horaria
 )
 from app.utils.dates import datetime_a_string
+from app.services.funciones_service import verificar_funcion_vigente
 
 
 def calcular_reporte_ocupacion(complejo=None) -> dict:
@@ -80,17 +81,9 @@ def calcular_reporte_ocupacion(complejo=None) -> dict:
 
 
 def obtener_estado_butacas(funcion_id: int) -> list:
-    sql_sala = """
-               SELECT s.capacidad
-               FROM funciones f
-                        JOIN salas s ON f.id_sala = s.id
-               WHERE f.id = %s \
-               """
-    sala = ejecutar_consulta(sql_sala, (funcion_id,))
-    if not sala:
-        raise ValueError("La función solicitada no existe.")
-
-    capacidad = sala[0]["capacidad"]
+    # solo se muestra el mapa de funciones que siguen a la venta
+    funcion = verificar_funcion_vigente(funcion_id)
+    capacidad = int(funcion["sala_capacidad"])
 
     sql_ocupadas = """
                    SELECT numero_butaca

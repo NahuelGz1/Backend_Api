@@ -6,7 +6,7 @@ def obtener_metricas_ocupacion_por_pelicula() -> list[dict]:
     Calcula por película:
     - Entradas vendidas (compradas o utilizadas)
     - Entradas canceladas
-    - Capacidad total ofertada
+    - Capacidad total ofertada (sin contar las funciones eliminadas)
     - Total recaudado en dinero (total_ingresos)
     """
     query = """
@@ -14,12 +14,12 @@ def obtener_metricas_ocupacion_por_pelicula() -> list[dict]:
                 p.id AS id_pelicula,
                 p.titulo AS pelicula_titulo,
                 p.genero,
-                COUNT(DISTINCT f.id) AS total_funciones,
+                COUNT(DISTINCT CASE WHEN f.eliminada = FALSE THEN f.id END) AS total_funciones,
                 COALESCE((
                              SELECT SUM(s_sub.capacidad)
                              FROM funciones f_sub
                                       INNER JOIN salas s_sub ON f_sub.id_sala = s_sub.id
-                             WHERE f_sub.id_pelicula = p.id
+                             WHERE f_sub.id_pelicula = p.id AND f_sub.eliminada = FALSE
                          ), 0) AS capacidad_total_ofertada,
                 COALESCE(SUM(CASE WHEN e.estado IN ('comprada', 'utilizada') THEN 1 ELSE 0 END), 0) AS total_entradas_vendidas,
                 COALESCE(SUM(CASE WHEN e.estado = 'cancelada' THEN 1 ELSE 0 END), 0) AS total_entradas_canceladas,
@@ -54,11 +54,11 @@ def obtener_metricas_ocupacion_por_funcion(local=None) -> list[dict]:
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
                      INNER JOIN salas s ON f.id_sala = s.id
                      LEFT JOIN entradas e ON f.id = e.id_funcion
-            {where}
+            WHERE f.eliminada = FALSE {filtro_local}
             GROUP BY f.id, f.fecha_hora_proyeccion, p.titulo, s.nombre, s.local, s.capacidad
             ORDER BY f.fecha_hora_proyeccion DESC
             """
-    return ejecutar_consulta(query.format(where="WHERE s.local = %s" if local else ""), (local,) if local else None)
+    return ejecutar_consulta(query.format(filtro_local="AND s.local = %s" if local else ""), (local,) if local else None)
 
 
 def obtener_resumen_general_ocupacion(local=None) -> dict:

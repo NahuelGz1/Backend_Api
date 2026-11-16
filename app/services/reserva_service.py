@@ -4,10 +4,27 @@ from flask import current_app
 from app.utils.validators import validar_email
 from app.repositories import auth_repository, compras_repository, funciones_repository
 from app.services.email_service import enviar_correo_compra
+from app.services.funciones_service import verificar_funcion_vigente
 from datetime import datetime, timedelta
 
 from app.utils.qr import generar_codigo_qr
 from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR, ESTADO_ENTRADA_CANCELADA
+
+def _validar_numeros_de_butaca(butacas: list, capacidad: int) -> list:
+    numeros = []
+    for butaca in butacas:
+        if isinstance(butaca, bool) or not str(butaca).strip().isdigit():
+            raise ValueError("Las butacas tienen que ser números enteros", 400)
+        numeros.append(int(butaca))
+
+    if len(set(numeros)) != len(numeros):
+        raise ValueError("No se puede elegir la misma butaca más de una vez", 400)
+
+    fuera_de_rango = [n for n in numeros if n < 1 or n > capacidad]
+    if fuera_de_rango:
+        raise ValueError(f"Las butacas {fuera_de_rango} no existen en esta sala (tiene {capacidad})", 400)
+    return numeros
+
 
 def procesar_compra(datos: dict, id_usuario: int) -> dict:
     email_contacto = datos.get("email_contacto")
@@ -15,13 +32,22 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
         try:
             email_contacto = validar_email(email_contacto)
         except ValueError:
-            raise ValueError("El email de contacto proporcionado no es válido.")
+            raise ValueError("El email de contacto proporcionado no es válido.", 400)
     id_funcion = datos.get("id_funcion")
     butacas = datos.get("butacas")
     servicios = datos.get("servicios", [])
 
-    if not id_funcion or not butacas or not isinstance(butacas, list):
-        raise ValueError("Faltan datos obligatorios: 'id_funcion' y 'butacas' (lista)")
+    if not id_funcion or isinstance(id_funcion, bool) or not butacas or not isinstance(butacas, list):
+        raise ValueError("Faltan datos obligatorios: 'id_funcion' y 'butacas' (lista)", 400)
+
+    # solo se venden entradas de funciones activas, futuras y con lugar
+    funcion = verificar_funcion_vigente(id_funcion)
+    id_funcion = funcion["funcion_id"]
+    capacidad = int(funcion["sala_capacidad"])
+    if int(funcion["entradas_activas"]) >= capacidad:
+        raise ValueError("La función está agotada, no quedan butacas libres", 409)
+
+    butacas = _validar_numeros_de_butaca(butacas, capacidad)
 
     conflictos = []
     for butaca in butacas:
@@ -29,7 +55,7 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
             conflictos.append(butaca)
 
     if conflictos:
-        raise ValueError(f"Las butacas {conflictos} ya se encuentran ocupadas.")
+        raise ValueError(f"Las butacas {conflictos} ya se encuentran ocupadas.", 409)
 
     codigo_qr = hashlib.sha256(
         f"compra-{id_usuario}-{id_funcion}-{time.time()}".encode()

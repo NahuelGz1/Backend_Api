@@ -81,28 +81,28 @@
             <h3 style="font-size: 16px; font-weight: bold; margin: 0 0 12px 0; color: #ffffff;">Detalle de tu compra</h3>
             <table width="100%" cellpadding="6" cellspacing="0" border="0" style="font-size: 13px; color: #cccccc; margin-bottom: 16px;">
               <tr>
-                <td style="padding-left: 0;">2 entradas × $10.000</td>
-                <td align="right" style="padding-right: 0;">$20.000</td>
+                <td style="padding-left: 0;">{{ cantidad_entradas | default(2) }} entradas × ${{ '{:,.0f}'.format(precio_entrada | default(10000)).replace(',', '.') }}</td>
+                <td align="right" style="padding-right: 0;">${{ '{:,.0f}'.format(subtotal_entradas | default(20000)).replace(',', '.') }}</td>
               </tr>
-              <tr>
-                <td style="padding-left: 0;">1 Combo dúo</td>
-                <td align="right" style="padding-right: 0;">$8.500</td>
-              </tr>
-              <tr>
-                <td style="padding-left: 0;">1 Nachos con cheddar</td>
-                <td align="right" style="padding-right: 0;">$4.000</td>
-              </tr>
-              <tr>
-                <td style="padding-left: 0; color: #888888;">Subtotal servicios</td>
-                <td align="right" style="padding-right: 0; color: #888888;">$12.500</td>
-              </tr>
+              {% if servicios %}
+                {% for item in servicios %}
+                <tr>
+                  <td style="padding-left: 0;">{{ item.cantidad }} × {{ item.nombre }}</td>
+                  <td align="right" style="padding-right: 0;">${{ '{:,.0f}'.format(item.subtotal).replace(',', '.') }}</td>
+                </tr>
+                {% endfor %}
+                <tr>
+                  <td style="padding-left: 0; color: #888888;">Subtotal servicios</td>
+                  <td align="right" style="padding-right: 0; color: #888888;">${{ '{:,.0f}'.format(subtotal_servicios | default(0)).replace(',', '.') }}</td>
+                </tr>
+              {% endif %}
             </table>
 
             <!-- Total y Número de Operación -->
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; border-top: 1px solid #2e2e2e; padding-top: 14px;">
               <tr>
                 <td style="font-size: 16px; font-weight: bold; color: #ffffff;">Total</td>
-                <td align="right" style="font-size: 18px; font-weight: bold; color: #ffffff;">$32.500 ARS</td>
+                <td align="right" style="font-size: 18px; font-weight: bold; color: #ffffff;">${{ '{:,.0f}'.format(total | default(32500)).replace(',', '.') }} ARS</td>
               </tr>
               <tr>
                 <td colspan="2" style="font-size: 11px; color: #777777; padding-top: 4px;">Operación {{ codigo_operacion | default('CP-261030-0842') }}</td>
@@ -185,13 +185,14 @@
               </tr>
             </table>
 
-            <!-- Retiro en el Candy Bar -->
+            {% if servicios %}
             <div style="margin-bottom: 24px;">
               <div style="font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;">Retiro en el candy bar</div>
               <div style="font-size: 13px; color: #a8a29e; line-height: 1.4;">
-                Tu Combo dúo y tus Nachos con cheddar se retiran en Paradiso Centro. Presentá el comprobante de esta compra en el candy bar antes de entrar a la sala.
+                Tus servicios se retiran en el complejo. Presentá el comprobante de esta compra en el candy bar antes de entrar a la sala.
               </div>
             </div>
+            {% endif %}
 
             <hr style="border: 0; border-top: 1px solid #2e2e2e; margin: 24px 0;">
 

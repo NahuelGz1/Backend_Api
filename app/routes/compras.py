@@ -47,6 +47,21 @@ def endpoint_cancelar_compra(compra_id: int):
     except Exception as e:
         return responder_error(message="Error interno al cancelar la compra", code=500)
 
+@compras_bp.route("/qr/<path:codigo_qr>", methods=["GET"])
+@requiere_autenticacion
+@requiere_administrador
+def consultar_qr_compra(codigo_qr: str):
+    try:
+        resultado = qr_service.consultar_compra(codigo_qr)
+        return responder_exito(data=resultado, message="Compra consultada exitosamente")
+    except LookupError as e:
+        return responder_error(message=str(e), code=404)
+    except ValueError as e:
+        return responder_error(message=str(e), code=400)
+    except Exception:
+        current_app.logger.error("No se pudo consultar el código QR")
+        return responder_error(message="Error al consultar el código QR", code=500)
+
 @compras_bp.route("/validar-qr", methods=["POST"])
 @requiere_autenticacion
 @requiere_administrador
@@ -54,29 +69,20 @@ def validar_qr_compra():
     try:
         datos = request.get_json(silent=True) or {}
         codigo_qr = datos.get("codigo_qr")
+        categoria = datos.get("categoria")
         if not codigo_qr:
             return responder_error(message="El campo 'codigo_qr' es obligatorio", code=400)
+        if not categoria:
+            return responder_error(message="El campo 'categoria' es obligatorio", code=400)
 
-        resultado = qr_service.validar_acceso(codigo_qr)
-        return responder_exito(data=resultado, message="Acceso validado y entrada utilizada")
+        resultado = qr_service.validar_canje(
+            codigo_qr, categoria, datos.get("id_detalle"), datos.get("id_entrada")
+        )
+        return responder_exito(data=resultado, message="Canje registrado exitosamente")
+    except LookupError as e:
+        return responder_error(message=str(e), code=404)
     except ValueError as e:
         return responder_error(message=str(e), code=400)
-    except Exception as e:
+    except Exception:
+        current_app.logger.error("No se pudo validar el código QR")
         return responder_error(message="Error al validar el código QR", code=500)
-
-@compras_bp.route("/validar-servicio", methods=["POST"])
-@requiere_autenticacion
-@requiere_administrador
-def validar_servicio_compra():
-    try:
-        datos = request.get_json(silent=True) or {}
-        id_detalle = datos.get("id_detalle")
-        if not id_detalle:
-            return responder_error(message="El campo 'id_detalle' es obligatorio", code=400)
-
-        resultado = qr_service.validar_servicio_adicional(id_detalle)
-        return responder_exito(data=resultado, message="Servicio adicional canjeado exitosamente")
-    except ValueError as e:
-        return responder_error(message=str(e), code=400)
-    except Exception as e:
-        return responder_error(message="Error al validar el servicio adicional", code=500)

@@ -1,5 +1,5 @@
 from app.db import ejecutar_consulta, ejecutar_mutacion, obtener_conexion
-from app.utils.constantes import ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_CANCELADA
+from app.utils.constantes import ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_CANCELADA, ESTADO_ENTRADA_UTILIZADA
 
 def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list, servicios_data: list = None) -> int:
     conexion = obtener_conexion()
@@ -120,19 +120,43 @@ def verificar_butaca_ocupada(id_funcion: int, numero_butaca: str) -> bool:
 
 def obtener_servicios_por_compra(id_compra: int) -> list:
     sql = """
-          SELECT ds.id AS id_detalle, s.nombre, ds.cantidad, ds.usado,
-                 ds.precio_historico AS precio
+          SELECT ds.id AS id_detalle, s.nombre, s.categoria, ds.cantidad, ds.usado,
+                 ds.cantidad_usada, ds.precio_historico AS precio
           FROM detalles_servicios ds
                    JOIN servicios s ON ds.id_servicio = s.id
-          WHERE ds.id_compra = %s \
+          WHERE ds.id_compra = %s
+          ORDER BY ds.id
           """
     return ejecutar_consulta(sql, (id_compra,))
 
 
-def marcar_servicio_usado(id_detalle: int) -> bool:
-    sql = "UPDATE detalles_servicios SET usado = TRUE WHERE id = %s AND usado = FALSE"
-    filas_afectadas = ejecutar_mutacion(sql, (id_detalle,))
-    return filas_afectadas > 0
+def obtener_compra_por_qr(codigo_qr: str) -> dict | None:
+    resultado = ejecutar_consulta(
+        "SELECT id, id_usuario, codigo_qr FROM compras WHERE codigo_qr = %s", (codigo_qr,)
+    )
+    return resultado[0] if resultado else None
+
+
+def canjear_entrada(id_compra: int, id_entrada: int) -> bool:
+    sql = """
+          UPDATE entradas
+          SET estado = %s
+          WHERE id = %s AND id_compra = %s AND estado = %s
+          """
+    return ejecutar_mutacion(
+        sql, (ESTADO_ENTRADA_UTILIZADA, id_entrada, id_compra, ESTADO_ENTRADA_COMPRADA)
+    ) > 0
+
+
+def canjear_unidad_servicio(id_compra: int, id_detalle: int) -> bool:
+    # usado se asigna antes que cantidad_usada: MySQL evalúa las asignaciones de izquierda a derecha
+    sql = """
+          UPDATE detalles_servicios
+          SET usado = (cantidad_usada + 1 >= cantidad), cantidad_usada = cantidad_usada + 1
+          WHERE id = %s AND id_compra = %s AND cantidad_usada < cantidad
+          """
+    return ejecutar_mutacion(sql, (id_detalle, id_compra)) > 0
+
 
 #función para validar las 2 horas
 def obtener_datos_resumen_compra(id_compra: int) -> dict | None:

@@ -1,48 +1,198 @@
 from app.repositories import compras_repository
-from app.utils.constantes import ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_UTILIZADA
+from app.utils.constantes import (
+    CATEGORIA_ENTRADAS,
+    CATEGORIA_ESTACIONAMIENTO,
+    CATEGORIA_SERVICIOS,
+    CATEGORIA_VIP,
+    CATEGORIAS_VALIDACION,
+    ESTADO_ENTRADA_CANCELADA,
+    ESTADO_ENTRADA_COMPRADA,
+    ESTADO_ENTRADA_UTILIZADA,
+)
 
-def validar_acceso(codigo_qr: str) -> dict:
-    if not codigo_qr:
+NOMBRES_CATEGORIA = {
+    CATEGORIA_ENTRADAS: "Entradas",
+    CATEGORIA_VIP: "Acceso VIP",
+    CATEGORIA_SERVICIOS: "Servicios",
+    CATEGORIA_ESTACIONAMIENTO: "Estacionamiento",
+}
+
+MENSAJES_YA_CANJEADO = {
+    CATEGORIA_VIP: "Los accesos VIP de esta compra ya fueron canjeados previamente.",
+    CATEGORIA_SERVICIOS: "Los servicios de esta compra ya fueron canjeados previamente.",
+    CATEGORIA_ESTACIONAMIENTO: "Todos los espacios de estacionamiento ya fueron canjeados.",
+}
+
+
+def categoria_de_servicio(nombre: str) -> str:
+    nombre = (nombre or "").lower()
+    if "estacionamiento" in nombre:
+        return CATEGORIA_ESTACIONAMIENTO
+    if "vip" in nombre:
+        return CATEGORIA_VIP
+    return CATEGORIA_SERVICIOS
+
+
+def _cargar_compra(codigo_qr: str) -> tuple[dict, list[dict], list[dict]]:
+    if not codigo_qr or not str(codigo_qr).strip():
         raise ValueError("El código QR no puede estar vacío.")
 
     entradas = compras_repository.obtener_entradas_por_qr(codigo_qr)
-
     if not entradas:
-        raise ValueError("El código QR presentado no es válido o no existe.")
+        raise LookupError("El código QR presentado no es válido o no existe.")
 
-    estados = {entrada["estado"] for entrada in entradas}
-    if estados == {ESTADO_ENTRADA_UTILIZADA}:
-        raise ValueError("Esta compra ya fue ingresada previamente.")
-    if estados != {ESTADO_ENTRADA_COMPRADA}:
-        raise ValueError("La compra no está activa para ingreso.")
+    id_compra = entradas[0]["id_compra"]
+    servicios = compras_repository.obtener_servicios_por_compra(id_compra)
+    return entradas[0], entradas, servicios
 
-    entrada = entradas[0]
-    compras_repository.actualizar_estado_entradas_de_compra(
-        entrada["id_compra"],
-        ESTADO_ENTRADA_COMPRADA,
-        ESTADO_ENTRADA_UTILIZADA,
-    )
 
-    #obtenemos los servicios asociados a la misma compra
-    servicios_asociados = compras_repository.obtener_servicios_por_compra(entrada["id_compra"])
+def _compra_cancelada(entradas: list[dict]) -> bool:
+    return all(e["estado"] == ESTADO_ENTRADA_CANCELADA for e in entradas)
 
+
+def _resumen_entradas(entradas: list[dict]) -> dict:
+    items = [
+        {
+            "id": e["id_entrada"],
+            "descripcion": f"Butaca {e['numero_butaca']}",
+            "numero_butaca": e["numero_butaca"],
+            "estado": e["estado"],
+        }
+        for e in sorted(entradas, key=lambda e: e["numero_butaca"])
+    ]
+    validas = [e for e in entradas if e["estado"] != ESTADO_ENTRADA_CANCELADA]
+    utilizadas = sum(1 for e in validas if e["estado"] == ESTADO_ENTRADA_UTILIZADA)
     return {
-        "id_entrada": entrada["id_entrada"],
-        "id_compra": entrada["id_compra"],
-        "pelicula": entrada.get("pelicula"),
-        "numero_butaca": entrada.get("numero_butaca"),
-        "butacas": [entrada["numero_butaca"] for entrada in entradas],
-        "fecha_hora": entrada.get("fecha_hora_proyeccion"),
-        "sala": entrada.get("sala"),
-        "complejo": entrada.get("local"),
-        "estado_nuevo": ESTADO_ENTRADA_UTILIZADA,
-        "servicios_adicionales": servicios_asociados,
+        "total": len(validas),
+        "utilizados": utilizadas,
+        "pendientes": len(validas) - utilizadas,
+        "cancelada": not validas,
+        "items": items,
     }
 
 
-def validar_servicio_adicional(id_detalle: int) -> dict:
-    exito = compras_repository.marcar_servicio_usado(id_detalle)
-    if not exito:
-        raise ValueError("El servicio adicional no existe o ya fue utilizado previamente.")
+def _resumen_servicios(servicios: list[dict], categoria: str, cancelada: bool) -> dict:
+    del_grupo = [s for s in servicios if categoria_de_servicio(s["nombre"]) == categoria]
+    items = []
+    for s in del_grupo:
+        cantidad = int(s["cantidad"] or 0)
+        usadas = min(int(s.get("cantidad_usada") or 0), cantidad)
+        items.append({
+            "id": s["id_detalle"],
+            "id_detalle": s["id_detalle"],
+            "nombre": s["nombre"],
+            "cantidad": cantidad,
+            "cantidad_usada": usadas,
+            "pendientes": cantidad - usadas,
+        })
+    total = sum(i["cantidad"] for i in items)
+    utilizados = sum(i["cantidad_usada"] for i in items)
+    return {
+        "total": total,
+        "utilizados": utilizados,
+        "pendientes": total - utilizados,
+        "cancelada": cancelada and total > 0,
+        "items": items,
+    }
 
-    return {"id_detalle": id_detalle, "estado": "utilizado"}
+
+def _armar_resumen(codigo_qr: str, primera: dict, entradas: list[dict], servicios: list[dict]) -> dict:
+    cancelada = _compra_cancelada(entradas)
+    categorias = {CATEGORIA_ENTRADAS: _resumen_entradas(entradas)}
+    for categoria in (CATEGORIA_VIP, CATEGORIA_SERVICIOS, CATEGORIA_ESTACIONAMIENTO):
+        categorias[categoria] = _resumen_servicios(servicios, categoria, cancelada)
+
+    return {
+        "id_compra": primera["id_compra"],
+        "codigo_qr": codigo_qr,
+        "pelicula": primera.get("pelicula"),
+        "fecha_hora": primera.get("fecha_hora_proyeccion"),
+        "sala": primera.get("sala"),
+        "complejo": primera.get("local"),
+        "butacas": [e["numero_butaca"] for e in entradas if e["estado"] != ESTADO_ENTRADA_CANCELADA],
+        "compra_cancelada": cancelada,
+        "categorias": categorias,
+    }
+
+
+def consultar_compra(codigo_qr: str) -> dict:
+    primera, entradas, servicios = _cargar_compra(codigo_qr)
+    return _armar_resumen(codigo_qr, primera, entradas, servicios)
+
+
+def _validar_una_entrada(id_compra: int, entradas: list[dict], id_entrada) -> int:
+    resumen = _resumen_entradas(entradas)
+    if resumen["cancelada"]:
+        raise ValueError("La compra está cancelada: sus entradas no son válidas para el ingreso.")
+    if resumen["pendientes"] == 0:
+        raise ValueError("Las entradas de esta compra ya fueron canjeadas previamente.")
+
+    if id_entrada is None:
+        elegida = next(e for e in entradas if e["estado"] == ESTADO_ENTRADA_COMPRADA)
+    else:
+        id_entrada = _entero(id_entrada, "id_entrada")
+        elegida = next((e for e in entradas if e["id_entrada"] == id_entrada), None)
+        if not elegida:
+            raise ValueError("La entrada indicada no pertenece a esta compra.")
+        if elegida["estado"] == ESTADO_ENTRADA_CANCELADA:
+            raise ValueError("La entrada indicada está cancelada.")
+
+    if not compras_repository.canjear_entrada(id_compra, elegida["id_entrada"]):
+        raise ValueError("Esa entrada ya fue canjeada previamente.")
+    return 1
+
+
+def _entero(valor, campo: str) -> int:
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        raise ValueError(f"El campo '{campo}' debe ser un número entero.")
+
+
+def _validar_una_unidad(id_compra: int, servicios: list[dict], categoria: str, cancelada: bool, id_detalle) -> int:
+    nombre = NOMBRES_CATEGORIA[categoria]
+    resumen = _resumen_servicios(servicios, categoria, cancelada)
+    if resumen["total"] == 0:
+        raise ValueError(f"La compra no incluye {nombre}.")
+    if resumen["cancelada"]:
+        raise ValueError("La compra está cancelada: sus servicios no son válidos.")
+    if resumen["pendientes"] == 0:
+        raise ValueError(MENSAJES_YA_CANJEADO[categoria])
+
+    if id_detalle is None:
+        elegido = next(i for i in resumen["items"] if i["pendientes"] > 0)
+    else:
+        id_detalle = _entero(id_detalle, "id_detalle")
+        elegido = next((i for i in resumen["items"] if i["id_detalle"] == id_detalle), None)
+        if not elegido:
+            raise ValueError(f"El servicio indicado no pertenece a {nombre} de esta compra.")
+        if elegido["pendientes"] == 0:
+            raise ValueError("Esa unidad ya fue canjeada previamente.")
+
+    if not compras_repository.canjear_unidad_servicio(id_compra, elegido["id_detalle"]):
+        raise ValueError("Esa unidad ya fue canjeada previamente.")
+    return 1
+
+
+def validar_canje(codigo_qr: str, categoria: str, id_detalle=None, id_entrada=None) -> dict:
+    categoria = (categoria or "").strip().lower()
+    if categoria not in CATEGORIAS_VALIDACION:
+        raise ValueError(
+            "La categoría debe ser una de: " + ", ".join(CATEGORIAS_VALIDACION) + "."
+        )
+
+    primera, entradas, servicios = _cargar_compra(codigo_qr)
+    id_compra = primera["id_compra"]
+
+    if categoria == CATEGORIA_ENTRADAS:
+        canjeados = _validar_una_entrada(id_compra, entradas, id_entrada)
+    else:
+        canjeados = _validar_una_unidad(
+            id_compra, servicios, categoria, _compra_cancelada(entradas), id_detalle
+        )
+
+    # se vuelve a consultar para devolver el estado real posterior al canje
+    resumen = consultar_compra(codigo_qr)
+    resumen["categoria_validada"] = categoria
+    resumen["unidades_canjeadas"] = canjeados
+    return resumen

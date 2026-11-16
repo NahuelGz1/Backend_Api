@@ -45,10 +45,18 @@ def _asegurar_tablas_compra(cursor):
             cantidad INT DEFAULT 1,
             precio_historico DECIMAL(10, 2) NOT NULL,
             usado BOOLEAN DEFAULT FALSE,
+            cantidad_usada INT NOT NULL DEFAULT 0,
             FOREIGN KEY (id_compra) REFERENCES compras(id),
             FOREIGN KEY (id_servicio) REFERENCES servicios(id)
         )
     """)
+    cursor.execute("SHOW COLUMNS FROM detalles_servicios LIKE 'cantidad_usada'")
+    if not cursor.fetchone():
+        cursor.execute(
+            "ALTER TABLE detalles_servicios ADD COLUMN cantidad_usada INT NOT NULL DEFAULT 0"
+        )
+        #los servicios ya canjeados antes de esta columna se consideran usados por completo
+        cursor.execute("UPDATE detalles_servicios SET cantidad_usada = cantidad WHERE usado = TRUE")
 
 
 def asegurar_esquema():
@@ -131,37 +139,30 @@ def cargar_fixture_qr_prueba():
                     compra["id"], funcion["id"], butacas[1], qr,
                 ),
             )
-            cursor.execute(
-                """
-                SELECT id, nombre, precio
-                FROM servicios
-                WHERE nombre IN ('Estacionamiento', 'Acceso VIP')
-                """
+            # (nombre, cantidad): comida, bebida, estacionamiento por auto y VIP por entrada
+            servicios_fixture = (
+                ("Balde de pochoclos", 1),
+                ("Agua", 2),
+                ("Estacionamiento", 2),
+                ("Acceso VIP", 2),
             )
-            servicios_prueba = {
-                fila["nombre"]: fila for fila in cursor.fetchall()
-            }
-            if len(servicios_prueba) < 2:
-                raise RuntimeError(
-                    "No están disponibles los servicios necesarios para el QR de prueba"
+            cursor.execute(
+                "SELECT id, nombre, precio FROM servicios WHERE nombre IN %s",
+                ([nombre for nombre, _ in servicios_fixture],),
+            )
+            servicios_prueba = {fila["nombre"]: fila for fila in cursor.fetchall()}
+            for nombre, cantidad in servicios_fixture:
+                servicio = servicios_prueba.get(nombre)
+                if not servicio:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO detalles_servicios
+                        (id_compra, id_servicio, cantidad, precio_historico, usado)
+                    VALUES (%s, %s, %s, %s, FALSE)
+                    """,
+                    (compra["id"], servicio["id"], cantidad, servicio["precio"]),
                 )
-            cursor.execute(
-                """
-                INSERT IGNORE INTO detalles_servicios
-                    (id_compra, id_servicio, cantidad, precio_historico, usado)
-                VALUES
-                    (%s, %s, 1, %s, FALSE),
-                    (%s, %s, 1, %s, FALSE)
-                """,
-                (
-                    compra["id"],
-                    servicios_prueba["Estacionamiento"]["id"],
-                    servicios_prueba["Estacionamiento"]["precio"],
-                    compra["id"],
-                    servicios_prueba["Acceso VIP"]["id"],
-                    servicios_prueba["Acceso VIP"]["precio"],
-                ),
-            )
         conexion.commit()
     except Exception:
         conexion.rollback()

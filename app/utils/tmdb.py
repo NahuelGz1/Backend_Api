@@ -48,7 +48,7 @@ def _obtener_nombres_de_generos(api_key):
     return diccionario_generos
 
 
-def _formatear_resultado_tmdb(resultado, nombres_de_generos):
+def _formatear_resultado_tmdb(resultado, nombres_de_generos, duracion=None):
     """Pasa un resultado de TMDB al formato estandarizado."""
     ruta_poster = resultado.get("poster_path")
     ids_de_generos = resultado.get("genre_ids")
@@ -68,6 +68,7 @@ def _formatear_resultado_tmdb(resultado, nombres_de_generos):
         "poster": poster_url,
         "fecha_estreno": resultado.get("release_date") or None,
         "genero": primer_genero,
+        "duracion": duracion,
     }
 def obtener_proximos_estrenos():
     """Obtiene películas populares con fecha de estreno anterior a 2026 desde TMDB."""
@@ -109,7 +110,16 @@ def buscar_peliculas(titulo):
 
     resultados_formateados = []
     for resultado in resultados_crudos[:10]:
-        resultados_formateados.append(_formatear_resultado_tmdb(resultado, nombres_de_generos))
+        duracion = None
+        try:
+            detalle = _pedir_a_tmdb(f"/movie/{resultado['id']}", api_key)
+            duracion = detalle.get("runtime")
+        except RuntimeError:
+            pass
+
+        resultados_formateados.append(
+            _formatear_resultado_tmdb(resultado, nombres_de_generos, duracion)
+        )
 
     return resultados_formateados
 

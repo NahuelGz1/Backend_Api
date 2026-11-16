@@ -59,6 +59,13 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
         funcion_info = funciones_repository.buscar_funcion_por_id(id_funcion)
         destinatario = email_contacto or (usuario.get("email") if usuario else None)
         if destinatario:
+            servicios_comprados = compras_repository.obtener_servicios_por_compra(id_compra)
+            for s in servicios_comprados:
+                s["subtotal"] = float(s["precio"]) * int(s["cantidad"])
+            subtotal_entradas = len(butacas) * PRECIO_ENTRADA_FIJO
+            subtotal_servicios = sum(s["subtotal"] for s in servicios_comprados)
+            total = subtotal_entradas + subtotal_servicios
+
             detalles_email = {
                 "nombre": usuario.get("nombre", "Cliente") if usuario else "Cliente",
                 "email": destinatario,
@@ -70,6 +77,12 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
                 "complejo_sala": f"{funcion_info.get('sala_local', '')} · {funcion_info.get('sala_nombre', '')}" if funcion_info else "",
                 "butacas_resumen": f"Butacas: {', '.join(str(b) for b in butacas)}",
                 "entradas": entradas_generadas_info,
+                "cantidad_entradas": len(butacas),
+                "precio_entrada": PRECIO_ENTRADA_FIJO,
+                "subtotal_entradas": subtotal_entradas,
+                "servicios": servicios_comprados,
+                "subtotal_servicios": subtotal_servicios,
+                "total": total,
             }
             enviar_correo_compra(destinatario, detalles_email)
     except Exception as e:

@@ -109,28 +109,33 @@
               </tr>
             </table>
 
-            <!-- QRs Entradas Individuales -->
-            <h3 style="font-size: 16px; font-weight: bold; margin: 0 0 4px 0; color: #ffffff;">Tus entradas individuales</h3>
-            <p style="font-size: 12px; color: #a8a29e; margin: 0 0 16px 0; line-height: 1.4;">Mostrá un QR por persona al ingresar a la sala. Cada código admite un solo uso para la función y fecha indicadas.</p>
+            <!-- QRs Entradas -->
+              <h3 style="font-size: 16px; font-weight: bold; margin: 0 0 4px 0; color: #ffffff;">Tus entradas
+                digitales</h3>
+              <p style="font-size: 12px; color: #a8a29e; margin: 0 0 16px 0; line-height: 1.4;">Mostrá este único QR
+                al ingresar a la sala para dar acceso a todas tus butacas.</p>
 
             <!-- Tabla de Códigos QR -->
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
               <tr>
                 {% if entradas %}
-                  {% for entrada in entradas %}
-                  <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d; margin-bottom: 12px;">
-                    <div style="font-weight: bold; font-size: 14px; color: #ffffff; margin-bottom: 6px;">Butaca {{ entrada.numero_butaca }}</div>
-                    <div style="font-size: 11px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">{{ pelicula_titulo | default('Película') }} · {{ funcion_fecha_hora }}<br>{{ complejo_sala }} · Un solo uso</div>
-                    <div style="background-color: #ffffff; padding: 10px; display: inline-block; border-radius: 4px; margin-bottom: 8px;">
-                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data={{ entrada.codigo_qr_texto }}" alt="QR Butaca {{ entrada.numero_butaca }}" width="110" height="110" style="display: block; border: 0;">
+                <td align="center" style="background-color: #1a1a1a; border-radius: 8px; padding: 20px; text-align: center; border: 1px solid #2d2d2d;">
+                    <div style="font-weight: bold; font-size: 15px; color: #ffffff; margin-bottom: 6px;">Entrada Digital
+                      Unificada</div>
+                    <div style="font-size: 12px; color: #a8a29e; margin-bottom: 12px; line-height: 1.4;">{{
+                      pelicula_titulo | default('Película') }} · {{ funcion_fecha_hora }}<br>{{ complejo_sala }} · {{
+                      butacas_resumen }}</div>
+                    <div
+                      style="background-color: #ffffff; padding: 12px; display: inline-block; border-radius: 6px; margin-bottom: 10px;">
+                      <img
+                        src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={{ codigo_qr | default('CP-PRUEBA', true) }}"
+                        alt="QR Butaca" width="140" height="140" style="display: block; border: 0;">
                     </div>
-                    <div style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ entrada.codigo_qr_texto }}</div>
-                    <div style="font-size: 9px; color: #777777; margin-top: 4px;">Presentá este código al ingresar a la sala.</div>
+                    <div style="font-size: 12px; font-weight: bold; color: #ffffff; letter-spacing: 1px">{{ codigo_qr |
+                      default('CP-PRUEBA', true) }}</div>
+                    <div style="font-size: 10px; color: #777777; margin-top: 6px;">Presentá este único código en el
+                      acceso para ingresar con todas las butacas.</div>
                   </td>
-                  {% if not loop.last %}
-                  <td class="qr-spacer" width="4%"></td>
-                  {% endif %}
-                  {% endfor %}
                 {% else %}
                   <!-- QR 1 -->
                   <td class="qr-stack" width="48%" valign="top" style="background-color: #1a1a1a; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d2d2d;">

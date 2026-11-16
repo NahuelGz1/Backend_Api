@@ -63,6 +63,7 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
                 "nombre": usuario.get("nombre", "Cliente") if usuario else "Cliente",
                 "email": destinatario,
                 "codigo_operacion": f"CP-{id_compra}",
+                "codigo_qr": codigo_qr,
                 "pelicula_titulo": funcion_info.get("pelicula_titulo") if funcion_info else "Película",
                 "pelicula_poster": funcion_info.get("pelicula_poster") if funcion_info else "",
                 "funcion_fecha_hora": str(funcion_info.get("fecha_hora_proyeccion")) if funcion_info else "",

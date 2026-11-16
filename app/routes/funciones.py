@@ -1,9 +1,15 @@
 from flask import Blueprint, request
 from app.services import funciones_service, ocupacion_service
 from app.utils.decorators import requiere_administrador, requiere_autenticacion
-from app.utils.response import responder_exito, responder_error
+from app.utils.response import responder_exito, responder_error, responder_error_de_validacion
+from app.utils.constantes import ROL_ADMINISTRADOR
 
 funciones_bp = Blueprint("funciones", __name__)
+
+
+def _es_admin() -> bool:
+    usuario = getattr(request, "usuario_actual", None) or {}
+    return str(usuario.get("rol", "")).lower() == ROL_ADMINISTRADOR
 
 
 @funciones_bp.route("/locales", methods=["GET"])
@@ -31,9 +37,9 @@ def listar_salas():
 @requiere_autenticacion
 def listar_funciones():
     try:
-        funciones = funciones_service.obtener_funciones(
-            request.args.get("incluir_inactivas") == "1"
-        )
+        # las inactivas y las que ya pasaron solo las ve el admin
+        incluir_inactivas = request.args.get("incluir_inactivas") == "1" and _es_admin()
+        funciones = funciones_service.obtener_funciones(incluir_inactivas)
         return responder_exito(data=funciones, message="Funciones obtenidas exitosamente")
     except Exception as e:
         return responder_error(message="Error al obtener funciones", code=500)
@@ -43,10 +49,10 @@ def listar_funciones():
 @requiere_autenticacion
 def obtener_detalle_funcion(funcion_id: int):
     try:
-        funcion = funciones_service.obtener_funcion_por_id(funcion_id)
+        funcion = funciones_service.obtener_funcion_por_id(funcion_id, _es_admin())
         return responder_exito(data=funcion, message="Detalle de función obtenido exitosamente")
     except ValueError as e:
-        return responder_error(message=str(e), code=404)
+        return responder_error_de_validacion(e, 404)
     except Exception as e:
         return responder_error(message="Error al obtener el detalle de la función", code=500)
 
@@ -60,7 +66,7 @@ def programar_funcion():
         funcion = funciones_service.programar_funcion(datos)
         return responder_exito(data=funcion, message="Función programada exitosamente", status_code=201)
     except ValueError as e:
-        return responder_error(message=str(e), code=400)
+        return responder_error_de_validacion(e)
     except Exception as e:
         return responder_error(message="Error interno al programar la función", code=500)
 
@@ -74,7 +80,7 @@ def modificar_funcion(funcion_id: int):
         funcion = funciones_service.modificar_funcion(funcion_id, datos)
         return responder_exito(data=funcion, message="Función modificada exitosamente")
     except ValueError as e:
-        return responder_error(message=str(e), code=400)
+        return responder_error_de_validacion(e)
     except Exception as e:
         return responder_error(message="Error interno al modificar la función", code=500)
 
@@ -85,9 +91,9 @@ def modificar_funcion(funcion_id: int):
 def dar_baja_funcion(funcion_id: int):
     try:
         resultado = funciones_service.dar_baja_funcion(funcion_id)
-        return responder_exito(data=resultado, message="Función dada de baja exitosamente")
+        return responder_exito(data=resultado, message="Función eliminada exitosamente")
     except ValueError as e:
-        return responder_error(message=str(e), code=400)
+        return responder_error_de_validacion(e)
     except Exception as e:
         return responder_error(message="Error interno al dar de baja la función", code=500)
 
@@ -103,7 +109,9 @@ def cambiar_estado_funcion(funcion_id):
         resultado = funciones_service.cambiar_estado_funcion(funcion_id, datos["activo"])
         return responder_exito(data=resultado, message="Estado de la función actualizado")
     except ValueError as error:
-        return responder_error(message=str(error), code=400)
+        return responder_error_de_validacion(error)
+    except Exception:
+        return responder_error(message="Error interno al cambiar el estado de la función", code=500)
 
 
 @funciones_bp.route("/<int:funcion_id>/butacas", methods=["GET"])
@@ -112,6 +120,6 @@ def obtener_butacas_disponibilidad(funcion_id: int):
         disponibilidad = ocupacion_service.obtener_estado_butacas(funcion_id)
         return responder_exito(data=disponibilidad, message="Disponibilidad obtenida con éxito")
     except ValueError as e:
-        return responder_error(message=str(e), code=404)
+        return responder_error_de_validacion(e, 404)
     except Exception as e:
         return responder_error(message="Error al obtener disponibilidad de butacas", code=500)

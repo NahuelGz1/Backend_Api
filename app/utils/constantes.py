@@ -11,6 +11,13 @@ ESTADO_ENTRADA_COMPRADA = "comprada"
 ESTADO_ENTRADA_UTILIZADA = "utilizada"
 ESTADO_ENTRADA_CANCELADA = "cancelada"
 
+# estados de funciones (se calculan con la fecha, la ocupacion y las marcas activo/eliminada)
+ESTADO_FUNCION_EN_VENTA = "en_venta"
+ESTADO_FUNCION_AGOTADA = "agotada"
+ESTADO_FUNCION_VENTA_CERRADA = "venta_cerrada"
+ESTADO_FUNCION_FINALIZADA = "finalizada"
+ESTADO_FUNCION_ELIMINADA = "eliminada"
+
 # largo del hash qr
 LARGO_HASH_QR = 30
 

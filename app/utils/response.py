@@ -24,3 +24,11 @@ def responder_error(code: int = 400, message: str = "Error procesando la solicit
         }
     }
     return jsonify(body), code
+
+
+def responder_error_de_validacion(error: ValueError, code_por_defecto: int = 400):
+    """Responde con el mensaje, el código y el detalle que trae el ValueError (mensaje, código, detalle)."""
+    mensaje = error.args[0] if error.args else "Error procesando la solicitud"
+    code = error.args[1] if len(error.args) > 1 and isinstance(error.args[1], int) else code_por_defecto
+    details = error.args[2] if len(error.args) > 2 else None
+    return responder_error(code=code, message=str(mensaje), details=details)

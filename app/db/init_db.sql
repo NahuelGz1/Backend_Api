@@ -92,6 +92,7 @@ CREATE TABLE detalles_servicios (
     cantidad INT DEFAULT 1,
     precio_historico DECIMAL(10, 2) NOT NULL,
     usado BOOLEAN DEFAULT FALSE,
+    cantidad_usada INT NOT NULL DEFAULT 0,
     FOREIGN KEY (id_compra) REFERENCES compras(id),
     FOREIGN KEY (id_servicio) REFERENCES servicios(id)
 );

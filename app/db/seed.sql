@@ -77,5 +77,7 @@ VALUES
 INSERT IGNORE INTO detalles_servicios
     (id_compra, id_servicio, cantidad, precio_historico, usado)
 VALUES
-    (@compra_prueba, 5, 1, 6000.00, FALSE),
-    (@compra_prueba, 6, 1, 15000.00, FALSE);
+    (@compra_prueba, 1, 1, 13500.00, FALSE),
+    (@compra_prueba, 4, 2, 5200.00, FALSE),
+    (@compra_prueba, 5, 2, 6000.00, FALSE),
+    (@compra_prueba, 6, 2, 15000.00, FALSE);

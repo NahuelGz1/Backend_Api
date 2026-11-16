@@ -1,8 +1,6 @@
 
--- Borra por completo la base de datos cine_paradiso si es que ya existía de antes.
-
-DROP DATABASE IF EXISTS cine_paradiso;
-CREATE DATABASE cine_paradiso CHARACTER SET utf8mb4; -- se le pone para que acepte tildes, eñes y emojis sin romperse.
+-- Crea la base si no existe; no borra una instalación previa.
+CREATE DATABASE IF NOT EXISTS cine_paradiso CHARACTER SET utf8mb4;
 USE cine_paradiso;
 
 

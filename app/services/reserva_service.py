@@ -101,7 +101,7 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
                 "pelicula_poster": funcion_info.get("pelicula_poster") if funcion_info else "",
                 "funcion_fecha_hora": str(funcion_info.get("fecha_hora_proyeccion")) if funcion_info else "",
                 "complejo_sala": f"{funcion_info.get('sala_local', '')} · {funcion_info.get('sala_nombre', '')}" if funcion_info else "",
-                "butacas_resumen": f"Butacas: {', '.join(str(b) for b in butacas)}",
+                "butacas_resumen": texto_butacas(butacas),
                 "entradas": entradas_generadas_info,
                 "cantidad_entradas": len(butacas),
                 "precio_entrada": PRECIO_ENTRADA_FIJO,

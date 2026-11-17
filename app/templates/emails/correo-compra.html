@@ -51,7 +51,7 @@
           <td style="padding: 32px;">
             <h1 style="margin: 0 0 12px 0; font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">¡Ya tenés tus entradas, {{ nombre | default('Lucía') }}!</h1>
             <p style="margin: 0 0 24px 0; font-size: 14px; color: #cccccc; line-height: 1.5;">
-              Tu compra está confirmada. Guardá este correo: acá tenés tus dos entradas y el detalle para retirar tus servicios.
+              Tu compra está confirmada. Guardá este correo: acá tenés {{ 'tu entrada' if cantidad_entradas == 1 else 'tus ' ~ cantidad_entradas ~ ' entradas' }} y el detalle para retirar tus servicios.
             </p>
 
             <!-- Tarjeta de la Película -->

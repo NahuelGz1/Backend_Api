@@ -19,7 +19,7 @@ def obtener_metricas_ocupacion_por_pelicula(local=None, periodo=None) -> list[di
     Calcula por película:
     - Entradas vendidas (compradas o utilizadas)
     - Entradas canceladas
-    - Capacidad total ofertada (sin contar las funciones eliminadas)
+    - Capacidad total ofertada (sin contar las funciones eliminadas ni las canceladas)
     - Total recaudado en dinero (total_ingresos)
     """
     filtros, parametros = _filtros_funcion(local, periodo)
@@ -29,8 +29,8 @@ def obtener_metricas_ocupacion_por_pelicula(local=None, periodo=None) -> list[di
                 p.id AS id_pelicula,
                 p.titulo AS pelicula_titulo,
                 p.genero,
-                COUNT(CASE WHEN f.eliminada = FALSE THEN f.id END) AS total_funciones,
-                COALESCE(SUM(CASE WHEN f.eliminada = FALSE THEN s.capacidad ELSE 0 END), 0) AS capacidad_total_ofertada,
+                COUNT(CASE WHEN f.eliminada = FALSE AND f.cancelada = FALSE THEN f.id END) AS total_funciones,
+                COALESCE(SUM(CASE WHEN f.eliminada = FALSE AND f.cancelada = FALSE THEN s.capacidad ELSE 0 END), 0) AS capacidad_total_ofertada,
                 COALESCE(SUM(e.vendidas), 0) AS total_entradas_vendidas,
                 COALESCE(SUM(e.canceladas), 0) AS total_entradas_canceladas,
                 COALESCE(SUM(e.ingresos), 0) AS total_ingresos
@@ -133,7 +133,7 @@ def obtener_metricas_ocupacion_por_funcion(local=None, periodo=None, incluir_eli
             """
     filtros, parametros = _filtros_funcion(local, periodo)
     return ejecutar_consulta(query.format(
-        filtro_eliminadas="1 = 1" if incluir_eliminadas else "f.eliminada = FALSE",
+        filtro_eliminadas="1 = 1" if incluir_eliminadas else "f.eliminada = FALSE AND f.cancelada = FALSE",
         filtro_local=("AND " + " AND ".join(filtros)) if filtros else "",
     ), tuple(parametros) or None)
 

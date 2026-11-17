@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cancelamos la función de tu compra {{ codigo_operacion | default('CP-261030-0842') }}</title>
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #191919; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f5f5f4;">
+
+<!-- Contenedor Principal Centrado -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td align="center">
+      <!-- Tarjeta Principal del Email -->
+      <table role="presentation" width="100%" style="max-width: 600px; background-color: #242424; border-radius: 12px; overflow: hidden; border: 1px solid #333333;" cellpadding="0" cellspacing="0" border="0">
+
+        <!-- Header con Logo y Etiqueta de Sección -->
+        <tr>
+          <td style="padding: 24px 32px 18px 32px; background-color: #202020; border-bottom: 1px solid #2e2e2e;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="font-size: 19px; font-weight: bold; color: #ffffff;">
+                  <span style="display: inline-block; vertical-align: middle; background-color: #73282c; color: #ffffff; padding: 4px 7px; border-radius: 6px; font-size: 13px; margin-right: 8px; line-height: 1;">🎟️</span> Cine Paradiso
+                </td>
+              </tr>
+              <tr>
+                <td style="font-size: 11px; color: #c48286; font-weight: 600; letter-spacing: 0.5px; padding-top: 10px;">
+                  FUNCIÓN CANCELADA
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Cuerpo Principal -->
+        <tr>
+          <td style="padding: 32px;">
+            <h1 style="margin: 0 0 12px 0; font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">Cancelamos tu función, {{ nombre | default('Lucía') }}</h1>
+            <p style="margin: 0 0 24px 0; font-size: 14px; color: #cccccc; line-height: 1.5;">
+              Lo sentimos mucho: tuvimos que cancelar la función para la que compraste {{ 'tu entrada' if cantidad_entradas == 1 else 'tus ' ~ cantidad_entradas ~ ' entradas' }}. Te devolvemos el total de la compra, no tenés que hacer nada.
+            </p>
+
+            <!-- Motivo de la Cancelación -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #2a1c1d; border-radius: 8px; margin-bottom: 24px; border: 1px solid #73282c;">
+              <tr>
+                <td style="padding: 14px 16px;">
+                  <div style="font-size: 11px; color: #c48286; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px;">MOTIVO DE LA CANCELACIÓN</div>
+                  <div style="font-size: 14px; color: #ffffff; line-height: 1.5;">{{ motivo | default('Falla técnica en el proyector de la sala.') }}</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Tarjeta de la Película -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 8px; margin-bottom: 24px; border: 1px solid #2d2d2d;">
+              <tr>
+                <td style="padding: 14px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <!-- Póster traído dinámicamente de TMDB o backend -->
+                      <td width="72" valign="top">
+                        {% if pelicula_poster %}
+                        <img src="{{ pelicula_poster }}" alt="Póster {{ pelicula_titulo | default('Volver al Futuro') }}" width="72" height="104" style="display: block; border-radius: 4px; object-fit: cover; background-color: #333333; border: 0;">
+                        {% else %}
+                        <div style="width: 72px; height: 104px; border-radius: 4px; background-color: #333333;"></div>
+                        {% endif %}
+                      </td>
+                      <!-- Datos de la Función Cancelada -->
+                      <td valign="top" style="padding-left: 14px;">
+                        <div style="font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 6px;">{{ pelicula_titulo | default('Volver al Futuro') }}</div>
+                        <div style="font-size: 13px; color: #a8a29e; margin-bottom: 4px; text-decoration: line-through;">{{ funcion_fecha_hora | default('Viernes 30/10/2026 · 19:30') }}</div>
+                        <div style="font-size: 13px; color: #a8a29e; margin-bottom: 4px;">{{ complejo_sala | default('Paradiso Centro · Sala 1') }}</div>
+                        <div style="font-size: 13px; color: #a8a29e;">{{ butacas_resumen | default('Fila D · Butacas D5 y D6') }}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Detalle de la devolución -->
+            <h3 style="font-size: 16px; font-weight: bold; margin: 0 0 12px 0; color: #ffffff;">Detalle de tu devolución</h3>
+            <table width="100%" cellpadding="6" cellspacing="0" border="0" style="font-size: 13px; color: #cccccc; margin-bottom: 16px;">
+              <tr>
+                <td style="padding-left: 0;">{{ cantidad_entradas | default(2) }} {{ 'entrada' if cantidad_entradas == 1 else 'entradas' }} × ${{ '{:,.0f}'.format(precio_entrada | default(10000)).replace(',', '.') }}</td>
+                <td align="right" style="padding-right: 0;">${{ '{:,.0f}'.format(subtotal_entradas | default(20000)).replace(',', '.') }}</td>
+              </tr>
+              {% if servicios %}
+                {% for item in servicios %}
+                <tr>
+                  <td style="padding-left: 0;">{{ item.cantidad }} × {{ item.nombre }}</td>
+                  <td align="right" style="padding-right: 0;">${{ '{:,.0f}'.format(item.subtotal).replace(',', '.') }}</td>
+                </tr>
+                {% endfor %}
+                <tr>
+                  <td style="padding-left: 0; color: #888888;">Subtotal servicios</td>
+                  <td align="right" style="padding-right: 0; color: #888888;">${{ '{:,.0f}'.format(subtotal_servicios | default(0)).replace(',', '.') }}</td>
+                </tr>
+              {% endif %}
+            </table>
+
+            <!-- Total a Devolver y Número de Operación -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; border-top: 1px solid #2e2e2e; padding-top: 14px;">
+              <tr>
+                <td style="font-size: 16px; font-weight: bold; color: #ffffff;">Total a devolver</td>
+                <td align="right" style="font-size: 18px; font-weight: bold; color: #ffffff;">${{ '{:,.0f}'.format(total_devolucion | default(32500)).replace(',', '.') }} ARS</td>
+              </tr>
+              <tr>
+                <td colspan="2" style="font-size: 11px; color: #777777; padding-top: 4px;">Operación {{ codigo_operacion | default('CP-261030-0842') }}</td>
+              </tr>
+            </table>
+
+            <!-- Cómo se Devuelve el Dinero -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 8px; border: 1px solid #2d2d2d; margin-bottom: 24px;">
+              <tr>
+                <td style="padding: 16px;">
+                  <div style="font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;">¿Cómo recibís el dinero?</div>
+                  <div style="font-size: 12px; color: #a8a29e; line-height: 1.4;">
+                    El reintegro se hace por el mismo medio de pago que usaste en la compra. Según tu banco o tarjeta, puede tardar algunos días hábiles en verse reflejado.
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- QR Dado de Baja -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 8px; border: 1px solid #2d2d2d; margin-bottom: 24px;">
+              <tr>
+                <td style="padding: 16px;">
+                  <div style="font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;">Tu código QR ya no es válido</div>
+                  <div style="font-size: 12px; color: #a8a29e; line-height: 1.4; margin-bottom: 8px;">
+                    Dimos de baja las entradas{{ ' y los servicios' if servicios }} de esta compra, así que el código ya no sirve para ingresar a la sala ni para retirar nada en el complejo.
+                  </div>
+                  <div style="font-size: 12px; font-weight: bold; color: #777777; letter-spacing: 1px; text-decoration: line-through;">{{ codigo_qr | default('CP-PRUEBA', true) }}</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Botón Elegir Otra Función -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+              <tr>
+                <td>
+                  <a href="{{ url_for('cliente_views.cartelera') }}" style="display: block; width: 100%; padding: 14px 0; background-color: #8b262a; color: #ffffff; text-align: center; text-decoration: none; font-weight: bold; font-size: 15px; border-radius: 6px; box-sizing: border-box;">Elegir otra función</a>
+                </td>
+              </tr>
+            </table>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+              <tr>
+                <td>
+                  <a href="{{ url_for('cliente_views.mi_perfil') }}" style="display: block; width: 100%; padding: 10px 0; background-color: transparent; color: #ffffff; text-align: center; text-decoration: none; font-size: 13px; font-weight: bold; border: 1px solid #4a4a4a; border-radius: 6px; box-sizing: border-box;">Ver mis compras</a>
+                </td>
+              </tr>
+            </table>
+
+            <hr style="border: 0; border-top: 1px solid #2e2e2e; margin: 24px 0;">
+
+            <!-- Soporte -->
+            <p style="font-size: 12px; color: #777777; margin: 0; line-height: 1.4;">
+              ¿Tenés alguna duda con la devolución? Escribinos a <a href="mailto:Asistenciacine@gmail.com" style="color: #a8a29e; text-decoration: underline;">Asistenciacine@gmail.com</a>
+            </p>
+
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding: 24px 32px; background-color: #1e1e1e; border-top: 1px solid #2e2e2e; font-size: 11px; color: #777777; line-height: 1.5;">
+            <div style="margin-bottom: 4px; font-weight: 500; color: #888888;">Cine Paradiso · © 2026</div>
+            <div>Recibiste este correo porque se canceló la función de tu compra {{ codigo_operacion | default('CP-261030-0842') }}.</div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

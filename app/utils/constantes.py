@@ -1,6 +1,7 @@
 # precios
 PRECIO_ENTRADA_FIJO = 10000.00
 MONEDA_SIMBOLO = "$"
+LIMITE_ESTACIONAMIENTO_POR_FUNCION = 20
 
 # roles de usuario
 ROL_ADMINISTRADOR = "administrador"

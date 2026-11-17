@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.repositories import funciones_repository as repositorio
 from app.repositories import peliculas_repository
+from app.repositories import compras_repository
 from app.validators import funciones_validator as validador
 from app.utils.dates import datetime_a_string
 from app.utils.constantes import (
@@ -110,6 +111,11 @@ def obtener_funcion_por_id(funcion_id: int, es_admin: bool = False) -> dict:
     funcion_dict = _funcion_a_dict(fila)
     funcion_dict["butacas_ocupadas"] = repositorio.obtener_butacas_ocupadas(funcion_id)
     return funcion_dict
+
+
+def obtener_disponibilidad_estacionamiento(funcion_id: int) -> dict:
+    _buscar_funcion_existente(funcion_id)
+    return compras_repository.obtener_disponibilidad_estacionamiento(funcion_id)
 
 
 # devuelve la funcion si todavia se pueden comprar entradas (la usan compras y el mapa de butacas)

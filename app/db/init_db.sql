@@ -1,4 +1,4 @@
-
+SET NAMES utf8mb4;
 -- Crea la base si no existe; no borra una instalación previa.
 CREATE DATABASE IF NOT EXISTS cine_paradiso CHARACTER SET utf8mb4;
 USE cine_paradiso;

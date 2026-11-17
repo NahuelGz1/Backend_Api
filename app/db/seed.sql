@@ -1,3 +1,4 @@
+SET NAMES utf8mb4;
 USE cine_paradiso;
 
 -- cuenta principal para habilitar otros administradores

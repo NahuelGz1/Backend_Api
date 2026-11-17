@@ -235,6 +235,22 @@ def _asegurar_columnas_de_estado():
                     cursor.execute(
                         "ALTER TABLE peliculas ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE"
                     )
+                for columna, definicion in (
+                    ("cancelada", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                    ("motivo_cancelacion", "VARCHAR(255) NULL"),
+                ):
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS cantidad
+                        FROM information_schema.columns
+                        WHERE table_schema = DATABASE()
+                          AND table_name = 'funciones'
+                          AND column_name = %s
+                        """,
+                        (columna,),
+                    )
+                    if cursor.fetchone()["cantidad"] == 0:
+                        cursor.execute(f"ALTER TABLE funciones ADD COLUMN {columna} {definicion}")
                 cursor.execute(
                     """
                     SELECT COUNT(*) AS cantidad FROM information_schema.columns

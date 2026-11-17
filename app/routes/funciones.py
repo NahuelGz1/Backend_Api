@@ -3,6 +3,7 @@ from app.services import funciones_service, ocupacion_service
 from app.utils.decorators import requiere_administrador, requiere_autenticacion
 from app.utils.response import responder_exito, responder_error, responder_error_de_validacion
 from app.utils.constantes import ROL_ADMINISTRADOR
+from app.services import devoluciones_service
 
 funciones_bp = Blueprint("funciones", __name__)
 
@@ -112,6 +113,22 @@ def cambiar_estado_funcion(funcion_id):
         return responder_error_de_validacion(error)
     except Exception:
         return responder_error(message="Error interno al cambiar el estado de la función", code=500)
+
+
+@funciones_bp.route("/<int:funcion_id>/cancelar", methods=["PUT"])
+@requiere_autenticacion
+@requiere_administrador
+def cancelar_funcion(funcion_id: int):
+    datos = request.get_json(silent=True) or {}
+    if not isinstance(datos, dict):
+        return responder_error(message="Los datos de la cancelación no son válidos", code=400)
+    try:
+        resultado = devoluciones_service.cancelar_funcion(funcion_id, datos)
+        return responder_exito(data=resultado, message="Función cancelada, se avisó a los compradores")
+    except ValueError as error:
+        return responder_error_de_validacion(error)
+    except Exception:
+        return responder_error(message="Error interno al cancelar la función", code=500)
 
 
 @funciones_bp.route("/<int:funcion_id>/butacas", methods=["GET"])

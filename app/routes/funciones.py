@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from app.services import funciones_service, ocupacion_service
 from app.utils.decorators import requiere_administrador, requiere_autenticacion
 from app.utils.response import responder_exito, responder_error, responder_error_de_validacion
@@ -123,3 +123,15 @@ def obtener_butacas_disponibilidad(funcion_id: int):
         return responder_error_de_validacion(e, 404)
     except Exception as e:
         return responder_error(message="Error al obtener disponibilidad de butacas", code=500)
+
+
+@funciones_bp.route("/<int:funcion_id>/estacionamiento", methods=["GET"])
+def obtener_estacionamiento_disponibilidad(funcion_id: int):
+    try:
+        disponibilidad = funciones_service.obtener_disponibilidad_estacionamiento(funcion_id)
+        return responder_exito(data=disponibilidad, message="Disponibilidad obtenida con éxito")
+    except ValueError as error:
+        return responder_error_de_validacion(error, 404)
+    except Exception as error:
+        current_app.logger.error("No se pudo consultar la disponibilidad de estacionamiento (%s)", type(error).__name__)
+        return responder_error(message="Error al obtener disponibilidad de estacionamiento", code=500)

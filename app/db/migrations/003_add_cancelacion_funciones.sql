@@ -1,7 +1,0 @@
-USE cine_paradiso;
-
-ALTER TABLE funciones
-    ADD COLUMN IF NOT EXISTS cancelada BOOLEAN NOT NULL DEFAULT FALSE;
-
-ALTER TABLE funciones
-    ADD COLUMN IF NOT EXISTS motivo_cancelacion VARCHAR(255) NULL;

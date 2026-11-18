@@ -286,6 +286,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
                         for servicio in servicios_compra
                     ],
                     "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", ""),
+                    "puntuacion_usuario": fila.get("puntuacion_usuario")
                 }
                 item["numeros_butacas"] = []
                 item["_subtotal_entradas"] = Decimal("0")

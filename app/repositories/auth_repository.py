@@ -155,12 +155,14 @@ def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
                 p.poster AS pelicula_poster,
                 p.duracion AS pelicula_duracion,
                 s.nombre AS sala_nombre,
-                s.local AS cine_local
+                s.local AS cine_local,
+                r.puntuacion AS puntuacion_usuario
             FROM entradas e
                      INNER JOIN compras c ON e.id_compra = c.id
                      INNER JOIN funciones f ON e.id_funcion = f.id
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
                      INNER JOIN salas s ON f.id_sala = s.id
+                     LEFT JOIN resenas r ON r.id_usuario = c.id_usuario AND r.id_pelicula = p.id
             WHERE c.id_usuario = %s
             ORDER BY f.fecha_hora_proyeccion DESC \
             """

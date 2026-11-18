@@ -285,7 +285,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
                         }
                         for servicio in servicios_compra
                     ],
-                    "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", ""),
+                    "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", "")
                 }
                 item["numeros_butacas"] = []
                 item["_subtotal_entradas"] = Decimal("0")
@@ -297,6 +297,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         else:
             if clave not in vistas_por_compra:
                 vistas_por_compra[clave] = {
+                    "puntuacion_usuario": fila.get("puntuacion_usuario"),
                     "id_compra": fila.get("id_compra"),
                     "id_pelicula": fila.get("id_pelicula"),
                     "titulo": fila.get("pelicula_titulo", ""),

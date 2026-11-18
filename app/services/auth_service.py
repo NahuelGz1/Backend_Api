@@ -28,6 +28,7 @@ from app.utils.security import (
 from datetime import datetime
 from decimal import Decimal
 from app.utils.butacas import etiquetas_butacas
+from app.utils.constantes import ESTADO_ENTRADA_UTILIZADA
 
 def registrar_usuario(nombre: str, email: str, password: str, rol: str = "cliente") -> dict:
     """
@@ -218,6 +219,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     entradas_proximas = []
     proximas_por_compra = {}
     vistas_por_compra = {}
+    peliculas_para_puntuar = {}
     ahora = datetime.now().replace(tzinfo=None)
     servicios_por_compra = {}
     for fila in servicios_bd:
@@ -248,6 +250,14 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             compras_proximas.add(clave_entrada(fila))
 
     for fila in entradas_bd:
+        id_pelicula = fila.get("id_pelicula")
+        if fila.get("estado") == ESTADO_ENTRADA_UTILIZADA and id_pelicula is not None:
+            peliculas_para_puntuar.setdefault(id_pelicula, {
+                "id_pelicula": id_pelicula,
+                "titulo": fila.get("pelicula_titulo", ""),
+                "poster_url": fila.get("pelicula_poster"),
+                "puntuacion_usuario": fila.get("puntuacion_usuario"),
+            })
         fecha_obj = fecha_de_entrada(fila)
 
         fecha_str = ""
@@ -420,6 +430,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
     return {
         "entradas_proximas": entradas_proximas,
         "peliculas_vistas": peliculas_vistas,
+        "peliculas_para_puntuar": list(peliculas_para_puntuar.values()),
         "consumos_pedidos": consumos_pedidos,
         "consumos_candy": consumos_candy,
         "consumos_candy_total": float(total_candy),

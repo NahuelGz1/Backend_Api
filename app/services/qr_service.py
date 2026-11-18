@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta
+
 from app.repositories import compras_repository
 from app.utils.butacas import etiqueta_butaca
+from app.utils.dates import FORMATO_FECHA_HORA_LEGIBLE, ahora_argentina
 from app.utils.constantes import (
     CATEGORIA_ENTRADAS,
     CATEGORIA_ESTACIONAMIENTO,
@@ -9,6 +12,10 @@ from app.utils.constantes import (
     ESTADO_ENTRADA_CANCELADA,
     ESTADO_ENTRADA_COMPRADA,
     ESTADO_ENTRADA_UTILIZADA,
+    ESTADO_VALIDACION_FUNCION_ANTICIPADA,
+    ESTADO_VALIDACION_FUNCION_VENCIDA,
+    ESTADO_VALIDACION_VALIDA,
+    HORAS_VENTANA_QR,
 )
 
 NOMBRES_CATEGORIA = {
@@ -97,12 +104,33 @@ def _resumen_servicios(servicios: list[dict], categoria: str, cancelada: bool) -
     }
 
 
+def _evaluar_ventana(fecha_funcion) -> tuple[str, str | None]:
+    """Devuelve (estado_validacion, mensaje) según la ventana de ±HORAS_VENTANA_QR respecto a la función."""
+    if not isinstance(fecha_funcion, datetime):
+        return ESTADO_VALIDACION_VALIDA, None
+
+    margen = timedelta(hours=HORAS_VENTANA_QR)
+    ahora = ahora_argentina()
+    programada = fecha_funcion.strftime(FORMATO_FECHA_HORA_LEGIBLE)
+    if ahora < fecha_funcion - margen:
+        return ESTADO_VALIDACION_FUNCION_ANTICIPADA, (
+            f"La función aún no está habilitada para el ingreso. Está programada para el {programada} "
+            f"y el QR se puede validar desde {HORAS_VENTANA_QR} horas antes."
+        )
+    if ahora > fecha_funcion + margen:
+        return ESTADO_VALIDACION_FUNCION_VENCIDA, (
+            f"La función del {programada} ya finalizó: el QR está fuera de la ventana de ingreso permitida."
+        )
+    return ESTADO_VALIDACION_VALIDA, None
+
+
 def _armar_resumen(codigo_qr: str, primera: dict, entradas: list[dict], servicios: list[dict]) -> dict:
     cancelada = _compra_cancelada(entradas)
     categorias = {CATEGORIA_ENTRADAS: _resumen_entradas(entradas)}
     for categoria in (CATEGORIA_VIP, CATEGORIA_SERVICIOS, CATEGORIA_ESTACIONAMIENTO):
         categorias[categoria] = _resumen_servicios(servicios, categoria, cancelada)
 
+    estado_validacion, mensaje_validacion = _evaluar_ventana(primera.get("fecha_hora_proyeccion"))
     return {
         "id_compra": primera["id_compra"],
         "codigo_qr": codigo_qr,
@@ -112,6 +140,9 @@ def _armar_resumen(codigo_qr: str, primera: dict, entradas: list[dict], servicio
         "complejo": primera.get("local"),
         "butacas": [e["numero_butaca"] for e in entradas if e["estado"] != ESTADO_ENTRADA_CANCELADA],
         "compra_cancelada": cancelada,
+        "valida": estado_validacion == ESTADO_VALIDACION_VALIDA,
+        "estado_validacion": estado_validacion,
+        "mensaje_validacion": mensaje_validacion,
         "categorias": categorias,
     }
 
@@ -184,6 +215,10 @@ def validar_canje(codigo_qr: str, categoria: str, id_detalle=None, id_entrada=No
 
     primera, entradas, servicios = _cargar_compra(codigo_qr)
     id_compra = primera["id_compra"]
+
+    estado_validacion, mensaje_validacion = _evaluar_ventana(primera.get("fecha_hora_proyeccion"))
+    if estado_validacion != ESTADO_VALIDACION_VALIDA:
+        raise ValueError(mensaje_validacion)
 
     if categoria == CATEGORIA_ENTRADAS:
         canjeados = _validar_una_entrada(id_compra, entradas, id_entrada)

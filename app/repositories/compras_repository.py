@@ -32,30 +32,60 @@ def obtener_disponibilidad_estacionamiento(id_funcion: int, cursor=None) -> dict
     }
 
 
-def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list, servicios_data: list = None) -> int:
+def guardar_compra_completa(
+    id_usuario: int, codigo_qr: str, entradas_data: list,
+    servicios_data: list = None, *, validar_funcion,
+) -> int:
     conexion = obtener_conexion()
     try:
         with conexion.cursor() as cursor:
-            if servicios_data:
-                ids_funciones = {entrada["id_funcion"] for entrada in entradas_data}
-                if len(ids_funciones) != 1:
-                    raise ValueError("La compra debe contener entradas de una sola función.", 400)
-                id_funcion = next(iter(ids_funciones))
-                # El bloqueo serializa las compras de estacionamiento de la misma función.
-                cursor.execute("SELECT id FROM funciones WHERE id = %s FOR UPDATE", (id_funcion,))
-                if not cursor.fetchone():
-                    raise ValueError("La función no existe.", 404)
+            ids_funciones = {entrada["id_funcion"] for entrada in entradas_data}
+            if len(ids_funciones) != 1:
+                raise ValueError("La compra debe contener entradas de una sola función.", 400)
+            id_funcion = next(iter(ids_funciones))
+            cursor.execute(
+                """
+                SELECT f.fecha_hora_proyeccion, f.activo, f.eliminada, f.cancelada,
+                       p.activo AS pelicula_activa, p.eliminada AS pelicula_eliminada
+                FROM funciones f
+                JOIN peliculas p ON p.id = f.id_pelicula
+                WHERE f.id = %s FOR UPDATE
+                """,
+                (id_funcion,),
+            )
+            funcion = cursor.fetchone()
+            validar_funcion(funcion)
 
-                nombres = {}
+            numeros = [entrada["numero_butaca"] for entrada in entradas_data]
+            cursor.execute(
+                """
+                SELECT numero_butaca FROM entradas
+                WHERE id_funcion = %s AND numero_butaca IN %s AND estado != %s
+                FOR UPDATE
+                """,
+                (id_funcion, numeros, ESTADO_ENTRADA_CANCELADA),
+            )
+            conflictos = sorted(fila["numero_butaca"] for fila in cursor.fetchall())
+            if conflictos:
+                raise ValueError(f"Las butacas {conflictos} ya se encuentran ocupadas.", 409)
+
+            catalogo = {}
+            if servicios_data:
                 for id_servicio in sorted({serv["id_servicio"] for serv in servicios_data}):
-                    cursor.execute("SELECT nombre FROM servicios WHERE id = %s FOR UPDATE", (id_servicio,))
+                    cursor.execute(
+                        "SELECT nombre, precio, activo FROM servicios WHERE id = %s FOR UPDATE",
+                        (id_servicio,),
+                    )
                     servicio = cursor.fetchone()
-                    if not servicio:
-                        raise ValueError(f"No existe el servicio {id_servicio}.", 400)
-                    nombres[id_servicio] = servicio["nombre"]
+                    if not servicio or not servicio["activo"]:
+                        raise ValueError("Un servicio ya no está disponible. Revisá tu compra.", 409)
+                    catalogo[id_servicio] = servicio
+                for serv in servicios_data:
+                    if serv["precio"] != catalogo[serv["id_servicio"]]["precio"]:
+                        raise ValueError("El precio de un servicio cambió. Revisá tu compra antes de confirmar.", 409)
                 cantidad = sum(
                     serv["cantidad"] for serv in servicios_data
-                    if "estacionamiento" in nombres[serv["id_servicio"]].lower()
+                    if "estacionamiento" in catalogo[serv["id_servicio"]]["nombre"].lower()
                 )
                 if cantidad:
                     disponibilidad = obtener_disponibilidad_estacionamiento(id_funcion, cursor)
@@ -80,7 +110,10 @@ def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list
                                VALUES (%s, %s, %s, %s) \
                                """
                 for serv in servicios_data:
-                    cursor.execute(sql_servicio, (id_compra, serv['id_servicio'], serv['cantidad'], serv['precio']))
+                    cursor.execute(sql_servicio, (
+                        id_compra, serv["id_servicio"], serv["cantidad"],
+                        catalogo[serv["id_servicio"]]["precio"],
+                    ))
 
             conexion.commit()
             return id_compra

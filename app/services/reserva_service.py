@@ -4,7 +4,7 @@ from flask import current_app
 from app.utils.validators import validar_email
 from app.repositories import auth_repository, compras_repository, funciones_repository
 from app.services.email_service import enviar_correo_compra
-from app.services.funciones_service import verificar_funcion_vigente
+from app.services.funciones_service import validar_funcion_vigente, verificar_funcion_vigente
 from app.validators.compra_validator import validar_servicios_compra
 from datetime import datetime, timedelta
 
@@ -87,7 +87,7 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
         })
 
     id_compra = compras_repository.guardar_compra_completa(
-        id_usuario, codigo_qr, entradas_data, servicios
+        id_usuario, codigo_qr, entradas_data, servicios, validar_funcion=validar_funcion_vigente
     )
     try:
         usuario = auth_repository.obtener_usuario_por_id(id_usuario)

@@ -175,3 +175,51 @@ def obtener_datos_resumen_compra(id_compra: int) -> dict | None:
 def cancelar_entradas_por_compra(id_compra: int) -> int:
     sql = "UPDATE entradas SET estado = %s WHERE id_compra = %s AND estado = %s"
     return ejecutar_mutacion(sql, (ESTADO_ENTRADA_CANCELADA, id_compra, ESTADO_ENTRADA_COMPRADA))
+
+
+def crear_resena_actualizar(id_usuario: int, id_pelicula: int, puntuacion: int) -> int:
+    sql = """
+    INSERT INTO reseñas (id_usuario, id_pelicula, puntuacion)
+    VALUES (%s, %s, %s)
+    ON DUPLICATE KEY UPDATE puntuacion = VALUES(puntuacion)
+    """
+    return ejecutar_mutacion(sql, (id_usuario, id_pelicula, puntuacion))
+
+def ver_puntuaciones(id_pelicula: int):
+    sql = """
+    SELECT AVG(puntuacion)
+    FROM reseñas
+    WHERE id_pelicula = %s
+    """
+    resultado = ejecutar_consulta(sql, (id_pelicula,))
+    return resultado
+
+def usuario_asistio_a_pelicula(id_usuario: int, id_pelicula: int) -> bool:
+    sql = """
+    SELECT 1 
+    FROM compras c
+    JOIN entradas e ON c.id = e.id_compra
+    JOIN funciones f ON e.id_funcion = f.id
+    WHERE c.id_usuario = %s 
+      AND f.id_pelicula = %s 
+      AND e.estado = %s
+    LIMIT 1
+    """
+    resultado = ejecutar_consulta(sql, (id_usuario, id_pelicula, ESTADO_ENTRADA_UTILIZADA))
+    return len(resultado) > 0
+
+def ver_puntuaciones(id_pelicula: int) -> dict:
+    sql = """
+    SELECT 
+        COALESCE(ROUND(AVG(puntuacion)), 0) AS promedio,
+        COUNT(*) AS total
+    FROM reseñas
+    WHERE id_pelicula = %s
+    """
+    resultado = ejecutar_consulta(sql, (id_pelicula,))
+    if resultado and resultado[0]:
+        return {
+            "promedio": int(resultado[0]["promedio"] or 0),
+            "total": int(resultado[0]["total"] or 0)
+        }
+    return {"promedio": 0, "total": 0}

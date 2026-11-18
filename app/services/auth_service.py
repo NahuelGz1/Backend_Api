@@ -259,6 +259,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
 
         item = {
             "id_compra": fila.get("id_compra"),
+            "id_pelicula": fila.get("id_pelicula"),
             "pelicula": {
                 "titulo": fila.get("pelicula_titulo", ""),
                 "poster_url": fila.get("pelicula_poster"),

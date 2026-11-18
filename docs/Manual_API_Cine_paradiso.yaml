@@ -1317,7 +1317,7 @@ paths:
         - Validación QR
       summary: Consultar una compra por su código QR
       operationId: get__compras_qr__codigo_qr
-      description: Solo para administradores.
+      description: 'Solo para administradores. Devuelve siempre los datos de la función e incluye valida, estado_validacion (valida, funcion_anticipada o funcion_vencida) y mensaje_validacion según la ventana de ingreso: desde 2 horas antes hasta 2 horas después del inicio de la función.'
       parameters:
         - $ref: '#/components/parameters/codigo_qr'
       security:
@@ -1341,7 +1341,7 @@ paths:
         - Validación QR
       summary: Validar ingreso o canjear una unidad de servicio
       operationId: post__compras_validar_qr
-      description: 'Categorias: entradas, vip, servicios, estacionamiento. Permite seleccionar id_entrada o id_detalle.'
+      description: 'Categorias: entradas, vip, servicios, estacionamiento. Permite seleccionar id_entrada o id_detalle. Responde 400 si la función está fuera de la ventana de ingreso (desde 2 horas antes hasta 2 horas después de su inicio).'
       security:
         - BearerAuth: []
       requestBody:

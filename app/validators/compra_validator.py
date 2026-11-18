@@ -1,3 +1,6 @@
+from decimal import Decimal, InvalidOperation
+
+
 def validar_servicios_compra(servicios):
     if not isinstance(servicios, list):
         raise ValueError("Los servicios deben ser una lista.", 400)
@@ -15,6 +18,13 @@ def validar_servicios_compra(servicios):
             normalizado[campo] = valor
         if "precio" not in servicio:
             raise ValueError("El precio del servicio es obligatorio.", 400)
+        try:
+            precio = Decimal(str(servicio["precio"]))
+        except (InvalidOperation, ValueError):
+            raise ValueError("El precio del servicio no es válido.", 400)
+        if not precio.is_finite() or precio < 0:
+            raise ValueError("El precio del servicio no es válido.", 400)
+        normalizado["precio"] = precio
         normalizados.append(normalizado)
     return normalizados
 

@@ -32,30 +32,60 @@ def obtener_disponibilidad_estacionamiento(id_funcion: int, cursor=None) -> dict
     }
 
 
-def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list, servicios_data: list = None) -> int:
+def guardar_compra_completa(
+    id_usuario: int, codigo_qr: str, entradas_data: list,
+    servicios_data: list = None, *, validar_funcion,
+) -> int:
     conexion = obtener_conexion()
     try:
         with conexion.cursor() as cursor:
-            if servicios_data:
-                ids_funciones = {entrada["id_funcion"] for entrada in entradas_data}
-                if len(ids_funciones) != 1:
-                    raise ValueError("La compra debe contener entradas de una sola función.", 400)
-                id_funcion = next(iter(ids_funciones))
-                # El bloqueo serializa las compras de estacionamiento de la misma función.
-                cursor.execute("SELECT id FROM funciones WHERE id = %s FOR UPDATE", (id_funcion,))
-                if not cursor.fetchone():
-                    raise ValueError("La función no existe.", 404)
+            ids_funciones = {entrada["id_funcion"] for entrada in entradas_data}
+            if len(ids_funciones) != 1:
+                raise ValueError("La compra debe contener entradas de una sola función.", 400)
+            id_funcion = next(iter(ids_funciones))
+            cursor.execute(
+                """
+                SELECT f.fecha_hora_proyeccion, f.activo, f.eliminada, f.cancelada,
+                       p.activo AS pelicula_activa, p.eliminada AS pelicula_eliminada
+                FROM funciones f
+                JOIN peliculas p ON p.id = f.id_pelicula
+                WHERE f.id = %s FOR UPDATE
+                """,
+                (id_funcion,),
+            )
+            funcion = cursor.fetchone()
+            validar_funcion(funcion)
 
-                nombres = {}
+            numeros = [entrada["numero_butaca"] for entrada in entradas_data]
+            cursor.execute(
+                """
+                SELECT numero_butaca FROM entradas
+                WHERE id_funcion = %s AND numero_butaca IN %s AND estado != %s
+                FOR UPDATE
+                """,
+                (id_funcion, numeros, ESTADO_ENTRADA_CANCELADA),
+            )
+            conflictos = sorted(fila["numero_butaca"] for fila in cursor.fetchall())
+            if conflictos:
+                raise ValueError(f"Las butacas {conflictos} ya se encuentran ocupadas.", 409)
+
+            catalogo = {}
+            if servicios_data:
                 for id_servicio in sorted({serv["id_servicio"] for serv in servicios_data}):
-                    cursor.execute("SELECT nombre FROM servicios WHERE id = %s FOR UPDATE", (id_servicio,))
+                    cursor.execute(
+                        "SELECT nombre, precio, activo FROM servicios WHERE id = %s FOR UPDATE",
+                        (id_servicio,),
+                    )
                     servicio = cursor.fetchone()
-                    if not servicio:
-                        raise ValueError(f"No existe el servicio {id_servicio}.", 400)
-                    nombres[id_servicio] = servicio["nombre"]
+                    if not servicio or not servicio["activo"]:
+                        raise ValueError("Un servicio ya no está disponible. Revisá tu compra.", 409)
+                    catalogo[id_servicio] = servicio
+                for serv in servicios_data:
+                    if serv["precio"] != catalogo[serv["id_servicio"]]["precio"]:
+                        raise ValueError("El precio de un servicio cambió. Revisá tu compra antes de confirmar.", 409)
                 cantidad = sum(
                     serv["cantidad"] for serv in servicios_data
-                    if "estacionamiento" in nombres[serv["id_servicio"]].lower()
+                    if "estacionamiento" in catalogo[serv["id_servicio"]]["nombre"].lower()
                 )
                 if cantidad:
                     disponibilidad = obtener_disponibilidad_estacionamiento(id_funcion, cursor)
@@ -80,7 +110,10 @@ def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list
                                VALUES (%s, %s, %s, %s) \
                                """
                 for serv in servicios_data:
-                    cursor.execute(sql_servicio, (id_compra, serv['id_servicio'], serv['cantidad'], serv['precio']))
+                    cursor.execute(sql_servicio, (
+                        id_compra, serv["id_servicio"], serv["cantidad"],
+                        catalogo[serv["id_servicio"]]["precio"],
+                    ))
 
             conexion.commit()
             return id_compra
@@ -199,9 +232,9 @@ def canjear_entrada(id_compra: int, id_entrada: int) -> bool:
           SET estado = %s
           WHERE id = %s AND id_compra = %s AND estado = %s
           """
-    return ejecutar_mutacion(
-        sql, (ESTADO_ENTRADA_UTILIZADA, id_entrada, id_compra, ESTADO_ENTRADA_COMPRADA)
-    ) > 0
+    return _canjear_con_compra_bloqueada(
+        id_compra, sql, (ESTADO_ENTRADA_UTILIZADA, id_entrada, id_compra, ESTADO_ENTRADA_COMPRADA)
+    )
 
 
 def canjear_unidad_servicio(id_compra: int, id_detalle: int) -> bool:
@@ -211,7 +244,34 @@ def canjear_unidad_servicio(id_compra: int, id_detalle: int) -> bool:
           SET usado = (cantidad_usada + 1 >= cantidad), cantidad_usada = cantidad_usada + 1
           WHERE id = %s AND id_compra = %s AND cantidad_usada < cantidad
           """
-    return ejecutar_mutacion(sql, (id_detalle, id_compra)) > 0
+    return _canjear_con_compra_bloqueada(id_compra, sql, (id_detalle, id_compra))
+
+
+def _canjear_con_compra_bloqueada(id_compra: int, sql: str, parametros: tuple) -> bool:
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT id FROM compras WHERE id = %s FOR UPDATE", (id_compra,))
+            if not cursor.fetchone():
+                conexion.rollback()
+                return False
+            cursor.execute(
+                "SELECT estado FROM entradas WHERE id_compra = %s FOR UPDATE",
+                (id_compra,),
+            )
+            entradas = cursor.fetchall()
+            if not any(e["estado"] != ESTADO_ENTRADA_CANCELADA for e in entradas):
+                conexion.rollback()
+                return False
+            cursor.execute(sql, parametros)
+            afectadas = cursor.rowcount
+        conexion.commit()
+        return afectadas > 0
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
 
 
 #función para validar las 2 horas
@@ -229,5 +289,73 @@ def obtener_datos_resumen_compra(id_compra: int) -> dict | None:
 
 
 def cancelar_entradas_por_compra(id_compra: int) -> int:
-    sql = "UPDATE entradas SET estado = %s WHERE id_compra = %s AND estado = %s"
-    return ejecutar_mutacion(sql, (ESTADO_ENTRADA_CANCELADA, id_compra, ESTADO_ENTRADA_COMPRADA))
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT id FROM compras WHERE id = %s FOR UPDATE", (id_compra,))
+            if not cursor.fetchone():
+                conexion.rollback()
+                return 0
+            cursor.execute("SELECT estado FROM entradas WHERE id_compra = %s FOR UPDATE", (id_compra,))
+            entradas = cursor.fetchall()
+            if any(e["estado"] not in (ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_CANCELADA) for e in entradas):
+                raise ValueError("No se puede cancelar una compra con entradas utilizadas.")
+            cursor.execute(
+                "SELECT cantidad_usada, usado FROM detalles_servicios WHERE id_compra = %s FOR UPDATE",
+                (id_compra,),
+            )
+            if any(s["cantidad_usada"] or s["usado"] for s in cursor.fetchall()):
+                raise ValueError("No se puede cancelar una compra con servicios utilizados.")
+            cursor.execute(
+                "UPDATE entradas SET estado = %s WHERE id_compra = %s AND estado = %s",
+                (ESTADO_ENTRADA_CANCELADA, id_compra, ESTADO_ENTRADA_COMPRADA),
+            )
+            afectadas = cursor.rowcount
+        conexion.commit()
+        return afectadas
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+def crear_resena_actualizar(id_usuario: int, id_pelicula: int, puntuacion: int) -> int:
+    sql = """
+    INSERT INTO reseñas (id_usuario, id_pelicula, puntuacion)
+    VALUES (%s, %s, %s)
+    ON DUPLICATE KEY UPDATE puntuacion = VALUES(puntuacion)
+    """
+    return ejecutar_mutacion(sql, (id_usuario, id_pelicula, puntuacion))
+
+
+def usuario_asistio_a_pelicula(id_usuario: int, id_pelicula: int) -> bool:
+    sql = """
+    SELECT 1
+    FROM compras c
+    JOIN entradas e ON c.id = e.id_compra
+    JOIN funciones f ON e.id_funcion = f.id
+    WHERE c.id_usuario = %s
+      AND f.id_pelicula = %s
+      AND e.estado = %s
+    LIMIT 1
+    """
+    resultado = ejecutar_consulta(sql, (id_usuario, id_pelicula, ESTADO_ENTRADA_UTILIZADA))
+    return len(resultado) > 0
+
+
+def ver_puntuaciones(id_pelicula: int) -> dict:
+    sql = """
+    SELECT
+        COALESCE(ROUND(AVG(puntuacion), 0), 0) AS promedio,
+        COUNT(*) AS total
+    FROM reseñas
+    WHERE id_pelicula = %s
+    """
+    resultado = ejecutar_consulta(sql, (id_pelicula,))
+    if resultado and resultado[0]:
+        return {
+            "promedio": int(resultado[0]["promedio"] or 0),
+            "total": int(resultado[0]["total"] or 0)
+        }
+    return {"promedio": 0, "total": 0}

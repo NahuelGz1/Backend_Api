@@ -26,6 +26,9 @@ from app.utils.security import (
     version_credencial,
 )
 from datetime import datetime
+from decimal import Decimal
+from app.utils.butacas import etiquetas_butacas
+from app.utils.constantes import ESTADO_ENTRADA_UTILIZADA
 
 def registrar_usuario(nombre: str, email: str, password: str, rol: str = "cliente") -> dict:
     """
@@ -210,14 +213,13 @@ def consultar_historial_completo_usuario(id_usuario: int) -> dict:
     }
 
 def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
-    """
-    Retorna los datos del perfil formateados específicamente para el frontend (mi_perfil.html).
-    """
     entradas_bd = obtener_historial_entradas_por_usuario(id_usuario)
     servicios_bd = obtener_historial_servicios_por_usuario(id_usuario)
 
     entradas_proximas = []
-    peliculas_vistas = []
+    proximas_por_compra = {}
+    vistas_por_compra = {}
+    peliculas_para_puntuar = {}
     ahora = datetime.now().replace(tzinfo=None)
     servicios_por_compra = {}
     for fila in servicios_bd:
@@ -225,16 +227,38 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         if compra_id is not None:
             servicios_por_compra.setdefault(compra_id, []).append(fila)
 
-    for fila in entradas_bd:
-        fecha_obj = fila.get("fecha_hora_proyeccion")
-
-        if isinstance(fecha_obj, str):
+    def fecha_de_entrada(fila):
+        fecha = fila.get("fecha_hora_proyeccion")
+        if isinstance(fecha, str):
             try:
-                fecha_obj = datetime.fromisoformat(fecha_obj.replace("Z", "+00:00"))
+                fecha = datetime.fromisoformat(fecha.replace("Z", "+00:00"))
             except ValueError:
                 pass
-        if isinstance(fecha_obj, datetime) and fecha_obj.tzinfo is not None:
-            fecha_obj = fecha_obj.replace(tzinfo=None)
+        if isinstance(fecha, datetime) and fecha.tzinfo is not None:
+            fecha = fecha.replace(tzinfo=None)
+        return fecha
+
+    def clave_entrada(fila):
+        compra_id = fila.get("id_compra")
+        return ("compra", compra_id) if compra_id is not None else ("entrada", fila["id_entrada"])
+
+    compras_proximas = set()
+    for fila in entradas_bd:
+        fecha = fecha_de_entrada(fila)
+        if (isinstance(fecha, datetime) and fecha >= ahora
+                and fila.get("estado") not in ("usada", "utilizada", "cancelada")):
+            compras_proximas.add(clave_entrada(fila))
+
+    for fila in entradas_bd:
+        id_pelicula = fila.get("id_pelicula")
+        if fila.get("estado") == ESTADO_ENTRADA_UTILIZADA and id_pelicula is not None:
+            peliculas_para_puntuar.setdefault(id_pelicula, {
+                "id_pelicula": id_pelicula,
+                "titulo": fila.get("pelicula_titulo", ""),
+                "poster_url": fila.get("pelicula_poster"),
+                "puntuacion_usuario": fila.get("puntuacion_usuario"),
+            })
+        fecha_obj = fecha_de_entrada(fila)
 
         fecha_str = ""
         horario_str = ""
@@ -247,57 +271,104 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             if len(partes) > 1:
                 horario_str = partes[1][:5]
 
-        precio_entrada = fila.get("precio_historico")
-        subtotal_str = f"{float(precio_entrada):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if precio_entrada is not None else "-"
-        servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
-        subtotal_servicios = sum(
-            float(servicio.get("precio") or 0) * int(servicio.get("cantidad") or 1)
-            for servicio in servicios_compra
-        )
-        subtotal_servicios_str = f"{subtotal_servicios:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        total_str = f"{(float(precio_entrada or 0) + subtotal_servicios):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-        item = {
-            "id_compra": fila.get("id_compra"),
-            "pelicula": {
-                "titulo": fila.get("pelicula_titulo", ""),
-                "poster_url": fila.get("pelicula_poster"),
-            },
-            "fecha": fecha_str,
-            "horario": horario_str,
-            "complejo": fila.get("cine_local", ""),
-            "sala": fila.get("sala_nombre", ""),
-            "butacas": fila.get("numero_butaca", ""),
-            "cantidad_entradas": 1,
-            "subtotal_entradas": subtotal_str,
-            "subtotal_servicios": subtotal_servicios_str,
-            "total": total_str,
-            "servicios": [
-                {
-                    "nombre": servicio.get("servicio_nombre", ""),
-                    "cantidad": int(servicio.get("cantidad") or 1),
-                    "precio": float(servicio.get("precio") or 0),
+        clave = clave_entrada(fila)
+        precio_entrada = Decimal(str(fila.get("precio_historico") or 0))
+        if clave in compras_proximas:
+            if clave not in proximas_por_compra:
+                servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
+                item = {
+                    "id_compra": fila.get("id_compra"),
+                    "id_pelicula": fila.get("id_pelicula"),
+                    "pelicula": {
+                        "titulo": fila.get("pelicula_titulo", ""),
+                        "poster_url": fila.get("pelicula_poster"),
+                    },
+                    "fecha": fecha_str,
+                    "horario": horario_str,
+                    "complejo": fila.get("cine_local", ""),
+                    "sala": fila.get("sala_nombre", ""),
+                    "servicios": [
+                        {
+                            "nombre": servicio.get("servicio_nombre", ""),
+                            "cantidad": int(servicio.get("cantidad") or 1),
+                            "precio": float(servicio.get("precio") or 0),
+                        }
+                        for servicio in servicios_compra
+                    ],
+                    "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", "")
                 }
-                for servicio in servicios_compra
-            ],
-            "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", ""),
-        }
-
-        if (
-            isinstance(fecha_obj, datetime)
-            and fecha_obj >= ahora
-            and fila.get("estado") not in ("usada", "utilizada", "cancelada")
-        ):
-            entradas_proximas.append(item)
+                item["numeros_butacas"] = []
+                item["_subtotal_entradas"] = Decimal("0")
+                proximas_por_compra[clave] = item
+                entradas_proximas.append(item)
+            grupo = proximas_por_compra[clave]
+            grupo["numeros_butacas"].append(int(fila["numero_butaca"]))
+            grupo["_subtotal_entradas"] += precio_entrada
         else:
-            peliculas_vistas.append(item)
+            if clave not in vistas_por_compra:
+                vistas_por_compra[clave] = {
+                    "puntuacion_usuario": fila.get("puntuacion_usuario"),
+                    "id_compra": fila.get("id_compra"),
+                    "id_pelicula": fila.get("id_pelicula"),
+                    "titulo": fila.get("pelicula_titulo", ""),
+                    "poster_url": fila.get("pelicula_poster"),
+                    "fecha": fecha_str,
+                    "horario": horario_str,
+                    "complejo": fila.get("cine_local", ""),
+                    "sala": fila.get("sala_nombre", ""),
+                    "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", ""),
+                    "numeros_butacas": [],
+                    "estados_entradas": [],
+                    "_subtotal_entradas": Decimal("0"),
+                }
+            grupo = vistas_por_compra[clave]
+            grupo["numeros_butacas"].append(int(fila["numero_butaca"]))
+            grupo["estados_entradas"].append(str(fila.get("estado") or "").lower())
+            grupo["_subtotal_entradas"] += precio_entrada
 
+    def formatear(monto):
+        return f"{monto:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    peliculas_vistas = []
+    for grupo in vistas_por_compra.values():
+        numeros = sorted(grupo["numeros_butacas"])
+        grupo["numeros_butacas"] = numeros
+        grupo["butacas"] = etiquetas_butacas(numeros)
+        grupo["cantidad_entradas"] = len(numeros)
+        servicios_compra = servicios_por_compra.get(grupo["id_compra"], [])
+        subtotal_servicios = sum(
+            (Decimal(str(servicio.get("precio") or 0)) * int(servicio.get("cantidad") or 1)
+             for servicio in servicios_compra),
+            Decimal("0"),
+        )
+        total = grupo.pop("_subtotal_entradas") + subtotal_servicios
+        grupo["total"] = formatear(total)
+        grupo["total_formateado"] = f"${formatear(total)} ARS"
+        grupo["estado"] = _estado_historial_entradas(grupo.pop("estados_entradas"))
+        peliculas_vistas.append(grupo)
+
+    for grupo in entradas_proximas:
+        numeros = sorted(grupo["numeros_butacas"])
+        grupo["numeros_butacas"] = numeros
+        grupo["butacas"] = etiquetas_butacas(numeros)
+        grupo["cantidad_entradas"] = len(numeros)
+        subtotal = grupo.pop("_subtotal_entradas")
+        subtotal_servicios = sum(
+            (Decimal(str(servicio.get("precio") or 0)) * int(servicio.get("cantidad") or 1)
+             for servicio in servicios_por_compra.get(grupo["id_compra"], [])),
+            Decimal("0"),
+        )
+        grupo["subtotal_entradas"] = formatear(subtotal)
+        grupo["subtotal_servicios"] = formatear(subtotal_servicios)
+        grupo["total"] = formatear(subtotal + subtotal_servicios)
+
+    pedidos_por_operacion = {}
     consumos_candy = []
-    total_candy = 0.0
+    total_candy = Decimal("0")
 
     for fila in servicios_bd:
         cantidad = int(fila.get("cantidad") or 1)
-        precio = float(fila["precio"]) if fila.get("precio") is not None else 0.0
+        precio = Decimal(str(fila.get("precio") or 0))
         total_candy += precio * cantidad
 
         fecha_compra = fila.get("fecha_hora_compra")
@@ -307,21 +378,77 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             fecha_str = str(fecha_compra).split(" ")[0]
         else:
             fecha_str = ""
-
         consumos_candy.append({
             "nombre": fila.get("servicio_nombre", ""),
             "cantidad": cantidad,
-            "precio_unitario": precio,
+            "precio_unitario": float(precio),
             "fecha": fecha_str,
             "codigo_pedido": fila.get("id_compra_servicio", ""),
+        })
+
+        compra_id = fila.get("id_compra")
+        detalle_id = fila.get("id_compra_servicio")
+        clave_pedido = ("compra", compra_id) if compra_id is not None else ("pedido", detalle_id)
+        if clave_pedido not in pedidos_por_operacion:
+            pedidos_por_operacion[clave_pedido] = {
+                "fecha": fecha_str,
+                "id_compra": compra_id,
+                "codigo_pedido": f"CP-{compra_id}" if compra_id is not None else f"PED-{detalle_id}",
+                "total_decimal": Decimal("0"),
+                "items_por_servicio": {},
+            }
+        pedido = pedidos_por_operacion[clave_pedido]
+        clave_item = (fila.get("id_servicio"), fila.get("servicio_nombre", ""), precio)
+        if clave_item not in pedido["items_por_servicio"]:
+            pedido["items_por_servicio"][clave_item] = {
+                "nombre": fila.get("servicio_nombre", ""),
+                "cantidad": 0,
+                "precio_unitario": formatear(precio),
+                "_precio_decimal": precio,
+            }
+        item = pedido["items_por_servicio"][clave_item]
+        item["cantidad"] += cantidad
+        pedido["total_decimal"] += precio * cantidad
+
+    consumos_pedidos = []
+    for pedido in pedidos_por_operacion.values():
+        items = []
+        for item in pedido["items_por_servicio"].values():
+            subtotal = item.pop("_precio_decimal") * item["cantidad"]
+            item["subtotal"] = f"${formatear(subtotal)} ARS"
+            item["precio_unitario_formateado"] = f"${item['precio_unitario']} ARS"
+            items.append(item)
+        total_pedido = pedido.pop("total_decimal")
+        consumos_pedidos.append({
+            "fecha": pedido["fecha"],
+            "id_compra": pedido["id_compra"],
+            "codigo_pedido": pedido["codigo_pedido"],
+            "total": f"${formatear(total_pedido)} ARS",
+            "items": items,
         })
 
     return {
         "entradas_proximas": entradas_proximas,
         "peliculas_vistas": peliculas_vistas,
+        "peliculas_para_puntuar": list(peliculas_para_puntuar.values()),
+        "consumos_pedidos": consumos_pedidos,
         "consumos_candy": consumos_candy,
-        "consumos_candy_total": total_candy,
+        "consumos_candy_total": float(total_candy),
     }
+
+
+def _estado_historial_entradas(estados: list[str]) -> dict:
+    """Resume el estado de todas las entradas de una compra para el historial."""
+    if estados and all(estado == "cancelada" for estado in estados):
+        return {"texto": "Cancelada", "clase": "profile-status-cancelled"}
+    utilizadas = sum(estado in ("utilizada", "usada") for estado in estados)
+    if utilizadas == len(estados):
+        return {"texto": "Utilizada", "clase": "profile-status-used"}
+    if utilizadas:
+        return {"texto": "Parcialmente utilizada", "clase": "profile-status-partial"}
+    if estados and any(estado == "cancelada" for estado in estados):
+        return {"texto": "Parcialmente cancelada", "clase": "profile-status-cancelled"}
+    return {"texto": "No utilizada", "clase": "profile-status-pending"}
 
 def cambiar_contrasena_usuario(id_usuario: int, contrasena_actual: str, contrasena_nueva: str) -> None:
     """Cambia la contraseña de un usuario autenticado. Verifica la contraseña actual y guarda el hash de la nueva contraseña en la base de datos."""

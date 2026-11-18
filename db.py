@@ -50,6 +50,20 @@ def _asegurar_tablas_compra(cursor):
             FOREIGN KEY (id_servicio) REFERENCES servicios(id)
         )
     """)
+
+    cursor.execute("""
+            CREATE TABLE IF NOT EXISTS reseñas (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_usuario INT NOT NULL,
+                id_pelicula INT NOT NULL,
+                puntuacion INT NOT NULL,
+                FOREIGN KEY (id_usuario) REFERENCES usuarios(id),
+                FOREIGN KEY (id_pelicula) REFERENCES peliculas(id),
+                UNIQUE KEY (id_usuario, id_pelicula)
+                )
+    """)
+
+
     cursor.execute("SHOW COLUMNS FROM detalles_servicios LIKE 'cantidad_usada'")
     if not cursor.fetchone():
         cursor.execute(

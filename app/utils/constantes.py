@@ -34,3 +34,9 @@ CATEGORIAS_VALIDACION = (
     CATEGORIA_SERVICIOS,
     CATEGORIA_ESTACIONAMIENTO,
 )
+
+# ventana en la que un QR se puede validar respecto al inicio de la función
+HORAS_VENTANA_QR = 2
+ESTADO_VALIDACION_VALIDA = "valida"
+ESTADO_VALIDACION_FUNCION_ANTICIPADA = "funcion_anticipada"
+ESTADO_VALIDACION_FUNCION_VENCIDA = "funcion_vencida"

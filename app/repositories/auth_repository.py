@@ -150,6 +150,7 @@ def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
                 c.id AS id_compra,
                 f.id AS id_funcion,
                 f.fecha_hora_proyeccion,
+                p.id AS id_pelicula,
                 p.titulo AS pelicula_titulo,
                 p.poster AS pelicula_poster,
                 p.duracion AS pelicula_duracion,

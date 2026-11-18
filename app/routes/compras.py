@@ -86,3 +86,22 @@ def validar_qr_compra():
     except Exception:
         current_app.logger.error("No se pudo validar el código QR")
         return responder_error(message="Error al validar el código QR", code=500)
+
+
+@compras_bp.route("/reseña", methods=["POST"])
+@requiere_autenticacion
+def crear_resena():
+    try:
+        datos = request.get_json(silent=True) or {}
+        id_usuario = request.usuario_actual.get("sub")
+        id_pelicula = datos.get("id_pelicula")
+        puntuacion = datos.get("puntuacion")
+        resultado = reserva_service.registrar_puntuacion(id_usuario, id_pelicula, puntuacion)
+        return responder_exito(data=resultado, message="Reseña añadida exitosamente")
+    except ValueError as e:
+        return responder_error_de_validacion(e)
+    except PermissionError as e:
+        return responder_error(message=str(e), code=403)
+    except Exception as error:
+        current_app.logger.error("No se pudo añadir la reseña (%s)", type(error).__name__)
+        return responder_error(message="Error interno al añadir la reseña", code=500)  

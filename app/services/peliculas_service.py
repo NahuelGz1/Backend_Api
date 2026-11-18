@@ -1,6 +1,7 @@
 """Lógica de películas: cartelera, detalle, alta y búsqueda en TMDB."""
 
 from app.repositories import peliculas_repository as repositorio
+from app.repositories import compras_repository
 from app.utils import tmdb
 from app.utils.dates import datetime_a_string
 from app.validators import peliculas_validator as validador
@@ -47,6 +48,7 @@ def _funcion_a_dict(fila: dict) -> dict:
 
 
 def _pelicula_a_dict(fila: dict, funciones: list) -> dict:
+    rating = compras_repository.ver_puntuaciones(fila["id"])
     return {
         "id": fila["id"],
         "titulo": fila["titulo"],
@@ -58,7 +60,10 @@ def _pelicula_a_dict(fila: dict, funciones: list) -> dict:
         "activo": bool(fila.get("activo", True)),
         "eliminada": bool(fila.get("eliminada", False)),
         "funciones": funciones,
-    }
+        "promedio_estrellas": rating.get("promedio", 0),
+        "total_votos": rating.get("total", 0),
+    } 
+    
 
 
 def obtener_cartelera() -> list:

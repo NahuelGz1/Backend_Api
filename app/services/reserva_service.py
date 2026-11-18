@@ -218,3 +218,23 @@ def cancelar_compra(compra_id: int, id_usuario: int) -> dict:
         "estado_actual": ESTADO_ENTRADA_CANCELADA,
         "mensaje": "Compra y servicios adicionales cancelados exitosamente."
     }
+
+def registrar_puntuacion(id_usuario: int, id_pelicula: int, puntuacion: int) -> dict:
+    if not id_pelicula or not isinstance(id_pelicula, int):
+        raise ValueError("El identificador de la película es obligatorio")
+    
+    if not isinstance(puntuacion, int) or isinstance(puntuacion, bool) or not (1 <= puntuacion <= 5):
+        raise ValueError("La puntuación debe ser un número entero entre 1 y 5")
+
+    if not compras_repository.usuario_asistio_a_pelicula(id_usuario, id_pelicula):
+        raise PermissionError("Solo puedes puntuar películas cuyo QR de entrada haya sido validado")
+
+    compras_repository.crear_resena_actualizar(id_usuario, id_pelicula, puntuacion)
+    resumen = compras_repository.ver_puntuaciones(id_pelicula)
+
+    return {
+        "id_pelicula": id_pelicula,
+        "puntuacion_usuario": puntuacion,
+        "promedio": resumen["promedio"],
+        "total_votos": resumen["total"]
+    }

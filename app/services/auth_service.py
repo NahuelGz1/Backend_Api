@@ -212,9 +212,6 @@ def consultar_historial_completo_usuario(id_usuario: int) -> dict:
     }
 
 def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
-    """
-    Retorna los datos del perfil formateados específicamente para el frontend (mi_perfil.html).
-    """
     entradas_bd = obtener_historial_entradas_por_usuario(id_usuario)
     servicios_bd = obtener_historial_servicios_por_usuario(id_usuario)
 
@@ -271,6 +268,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
                 servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
                 item = {
                     "id_compra": fila.get("id_compra"),
+                    "id_pelicula": fila.get("id_pelicula"),
                     "pelicula": {
                         "titulo": fila.get("pelicula_titulo", ""),
                         "poster_url": fila.get("pelicula_poster"),
@@ -300,6 +298,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
             if clave not in vistas_por_compra:
                 vistas_por_compra[clave] = {
                     "id_compra": fila.get("id_compra"),
+                    "id_pelicula": fila.get("id_pelicula"),
                     "titulo": fila.get("pelicula_titulo", ""),
                     "poster_url": fila.get("pelicula_poster"),
                     "fecha": fecha_str,

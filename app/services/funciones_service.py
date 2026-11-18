@@ -121,6 +121,11 @@ def obtener_disponibilidad_estacionamiento(funcion_id: int) -> dict:
 # devuelve la funcion si todavia se pueden comprar entradas (la usan compras y el mapa de butacas)
 def verificar_funcion_vigente(funcion_id) -> dict:
     fila = repositorio.buscar_funcion_por_id(funcion_id)
+    validar_funcion_vigente(fila)
+    return fila
+
+
+def validar_funcion_vigente(fila) -> None:
     if fila is None or fila.get("eliminada"):
         raise ValueError("La función que elegiste no existe o ya no está disponible", 404)
     if fila.get("cancelada"):
@@ -129,7 +134,6 @@ def verificar_funcion_vigente(funcion_id) -> dict:
         raise ValueError("La función ya comenzó, no se pueden comprar entradas", 409)
     if not fila.get("activo", True) or not _pelicula_vigente(fila):
         raise ValueError("La venta de entradas para esta función está cerrada", 409)
-    return fila
 
 
 def _buscar_funcion_existente(funcion_id, incluir_eliminadas=False):

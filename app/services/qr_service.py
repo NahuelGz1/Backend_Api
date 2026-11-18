@@ -1,4 +1,5 @@
 from app.repositories import compras_repository
+from app.utils.butacas import etiqueta_butaca
 from app.utils.constantes import (
     CATEGORIA_ENTRADAS,
     CATEGORIA_ESTACIONAMIENTO,
@@ -54,7 +55,7 @@ def _resumen_entradas(entradas: list[dict]) -> dict:
     items = [
         {
             "id": e["id_entrada"],
-            "descripcion": f"Butaca {e['numero_butaca']}",
+            "descripcion": f"Butaca {etiqueta_butaca(e['numero_butaca'])}",
             "numero_butaca": e["numero_butaca"],
             "estado": e["estado"],
         }

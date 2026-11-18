@@ -10,6 +10,12 @@ from datetime import datetime, timedelta
 
 from app.utils.qr import generar_codigo_qr
 from app.utils.constantes import PRECIO_ENTRADA_FIJO, LARGO_HASH_QR, ESTADO_ENTRADA_CANCELADA
+from app.utils.butacas import (
+    etiqueta_butaca,
+    etiquetas_butacas,
+    lista_etiquetas_butacas,
+    ubicacion_butaca,
+)
 
 def _validar_numeros_de_butaca(butacas: list, capacidad: int) -> list:
     numeros = []
@@ -125,19 +131,10 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
         "entradas": entradas_generadas_info
     }
 
-LETRAS_FILAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-def ubicacion_butaca(numero_butaca: int, columnas: int = 10) -> str:
-    numero = int(numero_butaca)
-    idx_fila = (numero - 1) // columnas
-    fila = LETRAS_FILAS[idx_fila] if idx_fila < len(LETRAS_FILAS) else str(idx_fila)
-    col = ((numero - 1) % columnas) + 1
-    return fila, col
-
 def texto_butacas(numeros_butacas: list[int]) -> str:
     if not numeros_butacas:
         return "Sin butacas asignadas"
-    etiquetas = [f"{ubicacion_butaca(b)[0]}{ubicacion_butaca(b)[1]}" for b in sorted(numeros_butacas)]
+    etiquetas = lista_etiquetas_butacas(numeros_butacas)
     if len(etiquetas) == 1:
         return f"Butaca {etiquetas[0]}"
     return f"Butacas: {', '.join(etiquetas[:-1])} y {etiquetas[-1]}"
@@ -185,7 +182,7 @@ def obtener_detalle_compra(compra_id: int, id_usuario: int) -> dict:
         {**entrada,
             "fila": ubicacion_butaca(entrada["numero_butaca"])[0],
             "numero": ubicacion_butaca(entrada["numero_butaca"])[1],
-            "codigo_butaca": f"{ubicacion_butaca(entrada['numero_butaca'])[0]}{ubicacion_butaca(entrada['numero_butaca'])[1]}",
+            "codigo_butaca": etiqueta_butaca(entrada["numero_butaca"]),
         }
         for entrada in compra["reserva"]["entradas"]
     ]

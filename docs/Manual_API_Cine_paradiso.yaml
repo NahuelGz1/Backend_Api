@@ -2,40 +2,43 @@ openapi: 3.0.0
 info:
   title: API REST de Cine Paradiso
   version: 1.0.0
-  description: API de autenticación, catálogo, funciones, salas, servicios, compras, canje de QR y métricas. Documentación
-    basada en los endpoints Flask de Backend_Api (rama develop, noviembre de 2026). La API devuelve objetos JSON normalizados
-    con ok, data y message en respuestas exitosas, u ok y error ante fallos.
+  description: API de autenticación, catálogo, funciones, salas, estacionamiento, servicios, compras, 
+    cancelación de funciones con devolución, canje de QR y métricas. Documentación de las rutas Flask de 
+    Backend_Api (rama develop, noviembre de 2026). La API devuelve JSON normalizados con ok, data y message en
+    respuestas exitosas, u ok y error ante fallos.
 servers:
-- url: http://127.0.0.1:5000/api
-  description: Servidor local de desarrollo (API_BASE_URL=/api)
+  - url: http://127.0.0.1:5000/api
+    description: Servidor local de desarrollo (API_BASE_URL=/api)
 tags:
-- name: Sistema
-  description: Comprobación del estado del servidor
-- name: Autenticación
-  description: Registro, ingreso, cierre de sesión y recuperación de contraseña
-- name: Usuarios
-  description: Perfil y administración de cuentas
-- name: Películas
-  description: Cartelera, películas y búsqueda TMDB
-- name: Funciones
-  description: Funciones y su programación
-- name: Salas
-  description: Salas y locales
-- name: Butacas
-  description: Disponibilidad de asientos
-- name: Servicios
-  description: Catálogo y gestión de servicios adicionales
-- name: Compras
-  description: Compra, consulta y cancelación
-- name: Validación QR
-  description: Consulta y canje de tickets y servicios
-- name: Dashboard
-  description: Reportes administrativos
+  - name: Sistema
+    description: Comprobación del estado del servidor
+  - name: Autenticación
+    description: Registro, ingreso, cierre de sesión y recuperación de contraseña
+  - name: Usuarios
+    description: Perfil y administración de cuentas
+  - name: Películas
+    description: Cartelera, películas y búsqueda TMDB
+  - name: Funciones
+    description: Funciones y su programación
+  - name: Salas
+    description: Salas y locales
+  - name: Butacas
+    description: Disponibilidad de asientos
+  - name: Estacionamiento
+    description: Cupo disponible de estacionamiento por función
+  - name: Servicios
+    description: Catálogo y gestión de servicios adicionales
+  - name: Compras
+    description: Compra, consulta y cancelación
+  - name: Validación QR
+    description: Consulta y canje de tickets y servicios
+  - name: Dashboard
+    description: Reportes administrativos
 paths:
   /ping:
     get:
       tags:
-      - Sistema
+        - Sistema
       summary: Comprobar que el backend está activo
       operationId: get__ping
       responses:
@@ -47,14 +50,14 @@ paths:
                 $ref: '#/components/schemas/Exito'
               example:
                 ok: true
-                data: null
+                data:
                 message: Backend Flask running
         '500':
           $ref: '#/components/responses/ServerError'
   /auth/register:
     post:
       tags:
-      - Autenticación
+        - Autenticación
       summary: Registrar un cliente
       operationId: post__auth_register
       description: Crea una cuenta con rol cliente.
@@ -76,7 +79,7 @@ paths:
   /auth/login:
     post:
       tags:
-      - Autenticación
+        - Autenticación
       summary: Iniciar sesión y obtener un JWT
       operationId: post__auth_login
       requestBody:
@@ -102,9 +105,9 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
               example:
                 ok: true
                 data:
@@ -126,12 +129,12 @@ paths:
   /auth/logout:
     post:
       tags:
-      - Autenticación
+        - Autenticación
       summary: Cerrar sesión
       operationId: post__auth_logout
       description: La respuesta confirma el cierre; el cliente debe descartar su token.
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -142,7 +145,7 @@ paths:
   /auth/forgot-password:
     post:
       tags:
-      - Autenticación
+        - Autenticación
       summary: Solicitar recuperación de contraseña
       operationId: post__auth_forgot_password
       description: Envía un enlace por correo si la cuenta existe.
@@ -162,7 +165,7 @@ paths:
   /auth/reset-password:
     post:
       tags:
-      - Autenticación
+        - Autenticación
       summary: Restablecer contraseña con token recibido
       operationId: post__auth_reset_password
       requestBody:
@@ -181,11 +184,11 @@ paths:
   /auth/usuarios/me:
     get:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Obtener mi perfil
       operationId: get__auth_usuarios_me
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -197,11 +200,11 @@ paths:
           $ref: '#/components/responses/ServerError'
     patch:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Actualizar nombre y/o correo de mi perfil
       operationId: patch__auth_usuarios_me
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -220,11 +223,11 @@ paths:
   /auth/usuarios/me/password:
     patch:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Cambiar mi contraseña
       operationId: patch__auth_usuarios_me_password
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -243,11 +246,11 @@ paths:
   /auth/usuarios/me/historial:
     get:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Consultar historial de entradas y servicios
       operationId: get__auth_usuarios_me_historial
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -258,11 +261,11 @@ paths:
   /auth/usuarios/me/perfil-completo:
     get:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Obtener perfil completo para la vista del frontend
       operationId: get__auth_usuarios_me_perfil_completo
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -273,12 +276,12 @@ paths:
   /auth/usuarios/admins:
     get:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Listar administradores
       operationId: get__auth_usuarios_admins
       description: Requiere administrador principal.
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -290,12 +293,12 @@ paths:
           $ref: '#/components/responses/ServerError'
     post:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Habilitar cuenta existente como administrador
       operationId: post__auth_usuarios_admins
       description: Requiere administrador principal.
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -318,14 +321,14 @@ paths:
   /auth/usuarios/admins/{id_usuario}:
     delete:
       tags:
-      - Usuarios
+        - Usuarios
       summary: Dar de baja el rol de administrador
       operationId: delete__auth_usuarios_admins__id_usuario
       description: Revoca el rol de administrador; no elimina el usuario. Requiere administrador principal.
       parameters:
-      - $ref: '#/components/parameters/id_usuario'
+        - $ref: '#/components/parameters/id_usuario'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -342,7 +345,7 @@ paths:
   /peliculas/cartelera:
     get:
       tags:
-      - Películas
+        - Películas
       summary: Obtener cartelera con funciones
       operationId: get__peliculas_cartelera
       responses:
@@ -364,34 +367,34 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
               example:
                 ok: true
                 data:
-                - id: 4
-                  titulo: El Club de la Pelea
-                  sinopsis: '...'
-                  poster: https://image.tmdb.org/t/p/w500/...
-                  duracion: 139
-                  clasificacion: '+18'
-                  genero: Drama
-                  activo: true
-                  eliminada: false
-                  funciones:
-                  - id: 5
-                    fecha_hora_proyeccion: '2026-12-04 20:00:00'
-                    sala: Sala 2
-                    local: Paradiso Centro
-                    capacidad: 50
+                  - id: 4
+                    titulo: El Club de la Pelea
+                    sinopsis: '...'
+                    poster: https://image.tmdb.org/t/p/w500/...
+                    duracion: 139
+                    clasificacion: '+18'
+                    genero: Drama
+                    activo: true
+                    eliminada: false
+                    funciones:
+                      - id: 5
+                        fecha_hora_proyeccion: '2026-12-04 20:00:00'
+                        sala: Sala 2
+                        local: Paradiso Centro
+                        capacidad: 50
                 message: Cartelera obtenida exitosamente
         '500':
           $ref: '#/components/responses/ServerError'
   /peliculas/estrenos:
     get:
       tags:
-      - Películas
+        - Películas
       summary: Obtener próximos estrenos de TMDB
       operationId: get__peliculas_estrenos
       responses:
@@ -413,19 +416,19 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '500':
           $ref: '#/components/responses/ServerError'
   /peliculas/{pelicula_id}:
     get:
       tags:
-      - Películas
+        - Películas
       summary: Consultar detalle de película
       operationId: get__peliculas__pelicula_id
       parameters:
-      - $ref: '#/components/parameters/pelicula_id'
+        - $ref: '#/components/parameters/pelicula_id'
       responses:
         '200':
           description: Operación exitosa
@@ -443,23 +446,23 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
       tags:
-      - Películas
+        - Películas
       summary: Retirar película del catálogo
       operationId: delete__peliculas__pelicula_id
       description: Baja lógica de la película.
       parameters:
-      - $ref: '#/components/parameters/pelicula_id'
+        - $ref: '#/components/parameters/pelicula_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -474,12 +477,12 @@ paths:
   /peliculas/admin:
     get:
       tags:
-      - Películas
+        - Películas
       summary: Listar películas para administración
       operationId: get__peliculas_admin
       description: Incluye estados de las películas.
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           description: Operación exitosa
@@ -499,9 +502,9 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -511,11 +514,11 @@ paths:
   /peliculas:
     post:
       tags:
-      - Películas
+        - Películas
       summary: Crear película en el catálogo
       operationId: post__peliculas
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -538,14 +541,14 @@ paths:
   /peliculas/buscar-externa:
     get:
       tags:
-      - Películas
+        - Películas
       summary: Buscar películas en TMDB
       operationId: get__peliculas_buscar_externa
       description: Devuelve previsualizaciones; no las guarda en MySQL.
       parameters:
-      - $ref: '#/components/parameters/titulo'
+        - $ref: '#/components/parameters/titulo'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -560,13 +563,13 @@ paths:
   /peliculas/{pelicula_id}/estado:
     patch:
       tags:
-      - Películas
+        - Películas
       summary: Activar o desactivar película
       operationId: patch__peliculas__pelicula_id__estado
       parameters:
-      - $ref: '#/components/parameters/pelicula_id'
+        - $ref: '#/components/parameters/pelicula_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -591,11 +594,11 @@ paths:
   /funciones/locales:
     get:
       tags:
-      - Funciones
+        - Funciones
       summary: Listar nombres de locales
       operationId: get__funciones_locales
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -606,14 +609,14 @@ paths:
   /funciones/salas:
     get:
       tags:
-      - Funciones
+        - Funciones
       summary: Listar salas
       operationId: get__funciones_salas
       description: Admite filtrado opcional por local.
       parameters:
-      - $ref: '#/components/parameters/local'
+        - $ref: '#/components/parameters/local'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -623,11 +626,11 @@ paths:
           $ref: '#/components/responses/ServerError'
     post:
       tags:
-      - Salas
+        - Salas
       summary: Crear una sala
       operationId: post__funciones_salas
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -648,14 +651,14 @@ paths:
   /funciones:
     get:
       tags:
-      - Funciones
+        - Funciones
       summary: Listar funciones
       operationId: get__funciones
       description: Para incluir las inactivas, usar incluir_inactivas=1 con cuenta administradora.
       parameters:
-      - $ref: '#/components/parameters/incluir_inactivas'
+        - $ref: '#/components/parameters/incluir_inactivas'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           description: Operación exitosa
@@ -675,22 +678,22 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/ServerError'
     post:
       tags:
-      - Funciones
+        - Funciones
       summary: Programar nueva función
       operationId: post__funciones
-      description: Valida película activa, sala existente, fecha futura y ausencia de superposición (incluye 15 minutos
-        de limpieza).
+      description: Valida película activa, sala existente, fecha futura y ausencia de superposición (incluye 
+        15 minutos de limpieza).
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -715,13 +718,13 @@ paths:
   /funciones/{funcion_id}:
     get:
       tags:
-      - Funciones
+        - Funciones
       summary: Consultar detalles de una función
       operationId: get__funciones__funcion_id
       parameters:
-      - $ref: '#/components/parameters/funcion_id'
+        - $ref: '#/components/parameters/funcion_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           description: Operación exitosa
@@ -739,9 +742,9 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -752,14 +755,14 @@ paths:
           $ref: '#/components/responses/ServerError'
     patch:
       tags:
-      - Funciones
+        - Funciones
       summary: Modificar una función
       operationId: patch__funciones__funcion_id
-      description: No permite modificar funciones pasadas o con entradas activas.
+      description: No permite modificar funciones pasadas, canceladas o con entradas activas.
       parameters:
-      - $ref: '#/components/parameters/funcion_id'
+        - $ref: '#/components/parameters/funcion_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -783,13 +786,13 @@ paths:
           $ref: '#/components/responses/ServerError'
     delete:
       tags:
-      - Funciones
+        - Funciones
       summary: Dar de baja una función
       operationId: delete__funciones__funcion_id
       parameters:
-      - $ref: '#/components/parameters/funcion_id'
+        - $ref: '#/components/parameters/funcion_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -805,16 +808,17 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/ServerError'
+      description: No permite eliminar funciones pasadas, canceladas o con entradas vendidas.
   /funciones/{funcion_id}/estado:
     patch:
       tags:
-      - Funciones
+        - Funciones
       summary: Cambiar estado activo/inactivo
       operationId: patch__funciones__funcion_id__estado
       parameters:
-      - $ref: '#/components/parameters/funcion_id'
+        - $ref: '#/components/parameters/funcion_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -834,15 +838,94 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+      description: No permite volver a activar una función cancelada. Para otro horario se debe programar una 
+        función nueva.
+  /funciones/{funcion_id}/cancelar:
+    put:
+      tags:
+        - Funciones
+      summary: Cancelar función, calcular devoluciones y avisar a compradores
+      operationId: put_cancelar_funcion
+      description: |
+        Operación exclusiva de administradores. Requiere un motivo de cancelación.
+        Cancela las entradas activas, conserva la función en el historial y calcula
+        los importes de devolución correspondientes a entradas y servicios.
+        Intenta enviar notificaciones por correo electrónico a los compradores.
+        El código calcula los montos pero no integra una pasarela de reembolsos.
+        No se puede cancelar una función ya cancelada o que ya se proyectó.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/funcion_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  example: Problema técnico en la sala
+            example:
+              motivo: Problema técnico en la sala
+      responses:
+        '200':
+          description: Función cancelada; se procesó el registro de devolución y se intentó avisar a los 
+            compradores
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data, message]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CancelacionFuncionResultado'
+                  message:
+                    type: string
+                    example: Función cancelada, se avisó a los compradores
+              example:
+                ok: true
+                data:
+                  funcion:
+                    id: 5
+                    fecha_hora_proyeccion: '2026-12-04 20:00:00'
+                    estado: cancelada
+                    cancelada: true
+                    motivo_cancelacion: Problema técnico en la sala
+                  motivo: Problema técnico en la sala
+                  compras_afectadas: 2
+                  entradas_canceladas: 3
+                  total_devuelto: 45000.0
+                  correos_enviados: 2
+                message: Función cancelada, se avisó a los compradores
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /funciones/{funcion_id}/butacas:
     get:
       tags:
-      - Butacas
+        - Butacas
       summary: Consultar butacas de una función
       operationId: get__funciones__funcion_id__butacas
       description: Endpoint público.
       parameters:
-      - $ref: '#/components/parameters/funcion_id'
+        - $ref: '#/components/parameters/funcion_id'
       responses:
         '200':
           description: Operación exitosa
@@ -862,25 +945,65 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/ServerError'
+  /funciones/{funcion_id}/estacionamiento:
+    get:
+      tags:
+        - Estacionamiento
+      summary: Consultar disponibilidad de estacionamiento para una función
+      operationId: get_disponibilidad_estacionamiento_funcion
+      description: |
+        Devuelve el límite, los espacios vendidos en compras con entradas activas
+        y los espacios restantes para la función indicada. El límite actual es
+        20 plazas por función. Endpoint público (no requiere token).
+      parameters:
+        - $ref: '#/components/parameters/funcion_id'
+      responses:
+        '200':
+          description: Disponibilidad obtenida con éxito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DisponibilidadEstacionamiento'
+                  message:
+                    type: string
+                    example: Disponibilidad obtenida con éxito
+                required: [ok, data, message]
+              example:
+                ok: true
+                data:
+                  limite: 20
+                  vendidos: 5
+                  disponibles: 15
+                message: Disponibilidad obtenida con éxito
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /funciones/salas/{sala_id}:
     patch:
       tags:
-      - Salas
+        - Salas
       summary: Modificar datos de una sala
       operationId: patch__funciones_salas__sala_id
       parameters:
-      - $ref: '#/components/parameters/sala_id'
+        - $ref: '#/components/parameters/sala_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -903,11 +1026,11 @@ paths:
   /butacas/funciones/{funcion_id}:
     get:
       tags:
-      - Butacas
+        - Butacas
       summary: Consultar disponibilidad de butacas (ruta alternativa)
       operationId: get__butacas_funciones__funcion_id
       parameters:
-      - $ref: '#/components/parameters/funcion_id'
+        - $ref: '#/components/parameters/funcion_id'
       responses:
         '200':
           description: Operación exitosa
@@ -927,9 +1050,9 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -939,11 +1062,11 @@ paths:
   /servicios:
     get:
       tags:
-      - Servicios
+        - Servicios
       summary: Listar servicios del cine
       operationId: get__servicios
       parameters:
-      - $ref: '#/components/parameters/incluir_inactivos'
+        - $ref: '#/components/parameters/incluir_inactivos'
       responses:
         '200':
           description: Respuesta exitosa
@@ -963,29 +1086,29 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
               example:
                 ok: true
                 data:
-                - id: 4
-                  nombre: Agua
-                  descripcion: 1 agua, valor por unidad
-                  precio: 5200.0
-                  categoria: Bebidas
-                  activo: true
-                  imagen_url: null
+                  - id: 4
+                    nombre: Agua
+                    descripcion: 1 agua, valor por unidad
+                    precio: 5200.0
+                    categoria: Bebidas
+                    activo: true
+                    imagen_url:
                 message: Servicios obtenidos exitosamente
         '500':
           $ref: '#/components/responses/ServerError'
     post:
       tags:
-      - Servicios
+        - Servicios
       summary: Crear un servicio
       operationId: post__servicios
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1006,14 +1129,14 @@ paths:
   /servicios/{servicio_id}:
     put:
       tags:
-      - Servicios
+        - Servicios
       summary: Modificar un servicio
       operationId: put__servicios__servicio_id
       description: Requiere los datos validados de un servicio.
       parameters:
-      - $ref: '#/components/parameters/servicio_id'
+        - $ref: '#/components/parameters/servicio_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1035,13 +1158,13 @@ paths:
           $ref: '#/components/responses/ServerError'
     delete:
       tags:
-      - Servicios
+        - Servicios
       summary: Desactivar un servicio
       operationId: delete__servicios__servicio_id
       parameters:
-      - $ref: '#/components/parameters/servicio_id'
+        - $ref: '#/components/parameters/servicio_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -1058,13 +1181,13 @@ paths:
   /servicios/{servicio_id}/estado:
     patch:
       tags:
-      - Servicios
+        - Servicios
       summary: Activar o desactivar un servicio
       operationId: patch__servicios__servicio_id__estado
       parameters:
-      - $ref: '#/components/parameters/servicio_id'
+        - $ref: '#/components/parameters/servicio_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1087,13 +1210,16 @@ paths:
   /compras:
     post:
       tags:
-      - Compras
+        - Compras
       summary: Comprar entradas y servicios
       operationId: post__compras
-      description: Requiere una función vigente y al menos una butaca. La compra queda registrada antes del intento de
+      description: Requiere una función vigente, al menos una butaca y autorización Bearer. Cada servicio 
+        agregado debe indicar id_servicio, cantidad y precio. El estacionamiento admite como máximo una plaza 
+        por entrada y está sujeto al cupo restante de la función (hasta 20 plazas por función). No se pueden 
+        comprar entradas para una función cancelada. La compra se confirma en la base antes del intento de 
         enviar el correo.
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1117,9 +1243,9 @@ paths:
                     type: string
                     example: Operación exitosa
                 required:
-                - ok
-                - data
-                - message
+                  - ok
+                  - data
+                  - message
               example:
                 ok: true
                 data:
@@ -1128,9 +1254,9 @@ paths:
                   codigo_qr_texto: CODIGO_GENERADO
                   qr_imagen_base64: <BASE64>
                   entradas:
-                  - numero_butaca: 1
-                    codigo_qr_texto: CODIGO_GENERADO
-                    qr_imagen_base64: <BASE64>
+                    - numero_butaca: 1
+                      codigo_qr_texto: CODIGO_GENERADO
+                      qr_imagen_base64: <BASE64>
                 message: Compra procesada exitosamente
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -1145,13 +1271,13 @@ paths:
   /compras/{compra_id}:
     get:
       tags:
-      - Compras
+        - Compras
       summary: Consultar detalle de una compra propia
       operationId: get__compras__compra_id
       parameters:
-      - $ref: '#/components/parameters/compra_id'
+        - $ref: '#/components/parameters/compra_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -1166,14 +1292,14 @@ paths:
   /compras/{compra_id}/cancelar:
     put:
       tags:
-      - Compras
+        - Compras
       summary: Cancelar una compra
       operationId: put__compras__compra_id__cancelar
       description: La cancelación está sujeta a las reglas de negocio y el horario de la función.
       parameters:
-      - $ref: '#/components/parameters/compra_id'
+        - $ref: '#/components/parameters/compra_id'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -1188,14 +1314,14 @@ paths:
   /compras/qr/{codigo_qr}:
     get:
       tags:
-      - Validación QR
+        - Validación QR
       summary: Consultar una compra por su código QR
       operationId: get__compras_qr__codigo_qr
       description: Solo para administradores.
       parameters:
-      - $ref: '#/components/parameters/codigo_qr'
+        - $ref: '#/components/parameters/codigo_qr'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -1212,12 +1338,12 @@ paths:
   /compras/validar-qr:
     post:
       tags:
-      - Validación QR
+        - Validación QR
       summary: Validar ingreso o canjear una unidad de servicio
       operationId: post__compras_validar_qr
       description: 'Categorias: entradas, vip, servicios, estacionamiento. Permite seleccionar id_entrada o id_detalle.'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -1240,15 +1366,15 @@ paths:
   /dashboard/ocupacion:
     get:
       tags:
-      - Dashboard
+        - Dashboard
       summary: Consultar métricas de ocupación e ingresos
       operationId: get__dashboard_ocupacion
       description: Solo administradores.
       parameters:
-      - $ref: '#/components/parameters/periodo'
-      - $ref: '#/components/parameters/complejo'
+        - $ref: '#/components/parameters/periodo'
+        - $ref: '#/components/parameters/complejo'
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/Ok'
@@ -1284,13 +1410,13 @@ components:
         rol:
           type: string
           enum:
-          - cliente
-          - administrador
+            - cliente
+            - administrador
       required:
-      - id
-      - nombre
-      - email
-      - rol
+        - id
+        - nombre
+        - email
+        - rol
     RegistroUsuario:
       type: object
       properties:
@@ -1306,9 +1432,9 @@ components:
           format: password
           minLength: 1
       required:
-      - nombre
-      - email
-      - password
+        - nombre
+        - email
+        - password
     Credenciales:
       type: object
       properties:
@@ -1320,8 +1446,8 @@ components:
           type: string
           format: password
       required:
-      - email
-      - password
+        - email
+        - password
     LoginResultado:
       type: object
       properties:
@@ -1331,8 +1457,8 @@ components:
         usuario:
           $ref: '#/components/schemas/Usuario'
       required:
-      - token
-      - usuario
+        - token
+        - usuario
     Correo:
       type: object
       properties:
@@ -1340,7 +1466,7 @@ components:
           type: string
           format: email
       required:
-      - email
+        - email
     ResetPassword:
       type: object
       properties:
@@ -1350,8 +1476,8 @@ components:
           type: string
           format: password
       required:
-      - token
-      - password
+        - token
+        - password
     CambiarPassword:
       type: object
       properties:
@@ -1362,8 +1488,8 @@ components:
           type: string
           format: password
       required:
-      - contrasena_actual
-      - contrasena_nueva
+        - contrasena_actual
+        - contrasena_nueva
     ActualizarPerfil:
       type: object
       properties:
@@ -1380,7 +1506,7 @@ components:
           type: boolean
           example: true
       required:
-      - activo
+        - activo
     FuncionCartelera:
       type: object
       properties:
@@ -1421,10 +1547,10 @@ components:
         clasificacion:
           type: string
           enum:
-          - ATP
-          - '+13'
-          - '+16'
-          - '+18'
+            - ATP
+            - '+13'
+            - '+16'
+            - '+18'
         genero:
           type: string
           example: Drama
@@ -1437,8 +1563,8 @@ components:
           items:
             $ref: '#/components/schemas/FuncionCartelera'
       required:
-      - id
-      - titulo
+        - id
+        - titulo
     PeliculaCrear:
       type: object
       properties:
@@ -1458,19 +1584,19 @@ components:
         clasificacion:
           type: string
           enum:
-          - ATP
-          - '+13'
-          - '+16'
-          - '+18'
+            - ATP
+            - '+13'
+            - '+16'
+            - '+18'
         genero:
           type: string
           maxLength: 50
           example: Drama
       required:
-      - titulo
-      - duracion
-      - clasificacion
-      - genero
+        - titulo
+        - duracion
+        - clasificacion
+        - genero
     Estreno:
       type: object
       properties:
@@ -1508,10 +1634,10 @@ components:
           type: string
           example: Paradiso Centro
       required:
-      - id
-      - nombre
-      - capacidad
-      - local
+        - id
+        - nombre
+        - capacidad
+        - local
     SalaCrear:
       type: object
       properties:
@@ -1526,9 +1652,9 @@ components:
           type: string
           example: Paradiso Centro
       required:
-      - nombre
-      - capacidad
-      - local
+        - nombre
+        - capacidad
+        - local
     SalaActualizar:
       type: object
       properties:
@@ -1554,6 +1680,22 @@ components:
           type: boolean
         eliminada:
           type: boolean
+        pelicula_activa:
+          type: boolean
+          example: true
+        pelicula_eliminada:
+          type: boolean
+          example: false
+        cancelada:
+          type: boolean
+          description: Indica que el cine canceló la función
+          example: false
+        motivo_cancelacion:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: Motivo informado por el administrador, o null si no fue cancelada
+          example: Problema técnico en la sala
         precio_entrada:
           type: number
           format: double
@@ -1567,11 +1709,12 @@ components:
         estado:
           type: string
           enum:
-          - en_venta
-          - agotada
-          - venta_cerrada
-          - finalizada
-          - eliminada
+            - en_venta
+            - agotada
+            - venta_cerrada
+            - finalizada
+            - eliminada
+            - cancelada
         pelicula:
           type: object
           properties:
@@ -1592,9 +1735,9 @@ components:
           items:
             type: integer
       required:
-      - id
-      - fecha_hora_proyeccion
-      - estado
+        - id
+        - fecha_hora_proyeccion
+        - estado
     FuncionCrear:
       type: object
       properties:
@@ -1611,9 +1754,9 @@ components:
           example: '2026-12-10 19:00:00'
           description: YYYY-MM-DD HH:MM:SS; debe ser futura
       required:
-      - id_pelicula
-      - id_sala
-      - fecha_hora_proyeccion
+        - id_pelicula
+        - id_sala
+        - fecha_hora_proyeccion
     FuncionActualizar:
       type: object
       properties:
@@ -1640,12 +1783,12 @@ components:
           type: string
           example: disponible
           enum:
-          - ocupada
-          - disponible
+            - ocupada
+            - disponible
       description: Estado de una butaca calculado por el servicio de ocupación.
       required:
-      - numero_butaca
-      - estado
+        - numero_butaca
+        - estado
     Servicio:
       type: object
       properties:
@@ -1665,10 +1808,10 @@ components:
         categoria:
           type: string
           enum:
-          - Bebidas
-          - Pochoclos
-          - Snacks
-          - Mejoras de experiencia
+            - Bebidas
+            - Pochoclos
+            - Snacks
+            - Mejoras de experiencia
         activo:
           type: boolean
         imagen_url:
@@ -1676,9 +1819,9 @@ components:
           nullable: true
           description: Data URI de imagen JPG o PNG, cuando exista
       required:
-      - id
-      - nombre
-      - precio
+        - id
+        - nombre
+        - precio
     ServicioCrear:
       type: object
       properties:
@@ -1698,17 +1841,17 @@ components:
         categoria:
           type: string
           enum:
-          - Bebidas
-          - Pochoclos
-          - Snacks
-          - Mejoras de experiencia
+            - Bebidas
+            - Pochoclos
+            - Snacks
+            - Mejoras de experiencia
           default: Snacks
         imagen_url:
           type: string
           description: 'Opcional: data:image/png;base64,... o data:image/jpeg;base64,... (máx. 5 MB)'
       required:
-      - nombre
-      - precio
+        - nombre
+        - precio
     ServicioActualizar:
       type: object
       properties:
@@ -1728,17 +1871,17 @@ components:
         categoria:
           type: string
           enum:
-          - Bebidas
-          - Pochoclos
-          - Snacks
-          - Mejoras de experiencia
+            - Bebidas
+            - Pochoclos
+            - Snacks
+            - Mejoras de experiencia
           default: Snacks
         imagen_url:
           type: string
           description: 'Opcional: data:image/png;base64,... o data:image/jpeg;base64,... (máx. 5 MB)'
       required:
-      - nombre
-      - precio
+        - nombre
+        - precio
     CompraServicio:
       type: object
       properties:
@@ -1750,10 +1893,18 @@ components:
           type: integer
           minimum: 1
           example: 2
+        precio:
+          type: number
+          format: double
+          description: Precio unitario informado en la compra (requerido por la implementación actual)
+          minimum: 0
+          example: 5200.0
       required:
-      - id_servicio
-      - cantidad
-      description: Servicio opcional agregado a la compra. El servidor calcula el total.
+        - id_servicio
+        - cantidad
+        - precio
+      description: Servicio opcional de la compra. El backend actual exige id_servicio, cantidad y precio por 
+        unidad.
     CompraCrear:
       type: object
       properties:
@@ -1775,8 +1926,8 @@ components:
           format: email
           description: 'Opcional: correo de contacto para el comprobante'
       required:
-      - id_funcion
-      - butacas
+        - id_funcion
+        - butacas
     CompraResultado:
       type: object
       properties:
@@ -1803,9 +1954,9 @@ components:
                 type: string
                 nullable: true
       required:
-      - id_compra
-      - codigo_qr_texto
-      - entradas
+        - id_compra
+        - codigo_qr_texto
+        - entradas
     ValidacionQR:
       type: object
       properties:
@@ -1815,10 +1966,10 @@ components:
         categoria:
           type: string
           enum:
-          - entradas
-          - vip
-          - servicios
-          - estacionamiento
+            - entradas
+            - vip
+            - servicios
+            - estacionamiento
         id_detalle:
           type: integer
           description: 'Opcional: detalle del servicio a canjear'
@@ -1826,8 +1977,8 @@ components:
           type: integer
           description: 'Opcional: entrada concreta a canjear'
       required:
-      - codigo_qr
-      - categoria
+        - codigo_qr
+        - categoria
     Exito:
       type: object
       properties:
@@ -1841,9 +1992,9 @@ components:
           type: string
           example: Operación exitosa
       required:
-      - ok
-      - data
-      - message
+        - ok
+        - data
+        - message
     ErrorDetalle:
       type: object
       properties:
@@ -1857,8 +2008,8 @@ components:
           nullable: true
           description: Detalles adicionales de validación, si corresponde.
       required:
-      - code
-      - message
+        - code
+        - message
     Error:
       type: object
       properties:
@@ -1868,8 +2019,51 @@ components:
         error:
           $ref: '#/components/schemas/ErrorDetalle'
       required:
-      - ok
-      - error
+        - ok
+        - error
+    DisponibilidadEstacionamiento:
+      type: object
+      required: [limite, vendidos, disponibles]
+      properties:
+        limite:
+          type: integer
+          description: Capacidad máxima de estacionamiento por función
+          example: 20
+        vendidos:
+          type: integer
+          description: Plazas vendidas mediante compras con entradas activas
+          example: 5
+        disponibles:
+          type: integer
+          description: Plazas todavía disponibles
+          example: 15
+    CancelacionFuncionResultado:
+      type: object
+      required: [funcion, motivo, compras_afectadas, entradas_canceladas, total_devuelto, correos_enviados]
+      properties:
+        funcion:
+          $ref: '#/components/schemas/Funcion'
+        motivo:
+          type: string
+          example: Problema técnico en la sala
+        compras_afectadas:
+          type: integer
+          minimum: 0
+          example: 2
+        entradas_canceladas:
+          type: integer
+          minimum: 0
+          example: 3
+        total_devuelto:
+          type: number
+          format: double
+          description: Suma calculada de entradas y servicios de las compras afectadas
+          example: 45000.0
+        correos_enviados:
+          type: integer
+          minimum: 0
+          description: Cantidad de correos que la función de envío confirmó como enviados
+          example: 2
   parameters:
     pelicula_id:
       name: pelicula_id
@@ -1957,7 +2151,7 @@ components:
       schema:
         type: string
         enum:
-        - '1'
+          - '1'
       example: '1'
     incluir_inactivos:
       name: incluir_inactivos
@@ -1967,7 +2161,7 @@ components:
       schema:
         type: string
         enum:
-        - '1'
+          - '1'
       example: '1'
     periodo:
       name: periodo

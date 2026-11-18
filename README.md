@@ -1,6 +1,6 @@
 # Cine Paradiso — API Backend
 
-API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee las operaciones necesarias para autenticación de usuarios, cartelera, programación de funciones, disponibilidad de butacas, servicios adicionales, compras de entradas, validación de códigos QR y métricas administrativas.
+API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee las operaciones necesarias para autenticación de usuarios, cartelera, programación y cancelación de funciones, disponibilidad de butacas y estacionamiento, servicios adicionales, compras de entradas, validación de códigos QR y métricas administrativas.
 
 > Este repositorio contiene el **backend**. La interfaz web se encuentra en [Frontend-Web](https://github.com/NahuelGz1/Frontend-Web).
 
@@ -100,7 +100,7 @@ El repositorio también incluye `app/db/seed.sql` con datos iniciales y registro
 sudo mysql < app/db/seed.sql
 ```
 
-**Importante:** no vuelvas a ejecutar estos archivos sobre una base con datos. El script de tablas no es una migración general para instalaciones existentes y el de datos puede insertar registros duplicados. Antes de cualquier cambio de esquema, realizá un respaldo y revisá las migraciones disponibles en `app/db/migrations/`.
+**Importante:** no vuelvas a ejecutar estos archivos sobre una base con datos. El script de tablas no es una migración general para instalaciones existentes y el de datos puede insertar registros duplicados. Antes de cualquier cambio de esquema, realizá un respaldo y revisá las migraciones disponibles en `app/db/migrations/` (incluida `003_add_cancelacion_funciones.sql`, que agrega el estado y el motivo de cancelación).
 
 Las migraciones que ejecuta `db.py` también pueden necesitar permisos de creación o alteración de tablas. Utilizá una cuenta MySQL con permisos adecuados para el entorno, evitando credenciales de administrador global en producción.
 
@@ -138,12 +138,20 @@ Las rutas se registran en `app.py`. Con la configuración predeterminada, los gr
 | --- | --- |
 | `/api/auth` | Registro, acceso, perfil y administración de usuarios. |
 | `/api/peliculas` | Cartelera, detalle, estrenos y gestión de películas. |
-| `/api/funciones` | Funciones, programación y disponibilidad de butacas. |
+| `/api/funciones` | Programación, cancelación y estado de funciones; disponibilidad de butacas y estacionamiento. |
 | `/api/funciones/salas` | Gestión de salas. |
 | `/api/butacas` | Consulta de disponibilidad por función. |
 | `/api/servicios` | Catálogo y administración de servicios adicionales. |
-| `/api/compras` | Compras, cancelaciones y validación de QR. |
+| `/api/compras` | Compras de entradas y servicios, cancelaciones de compras y validación de QR. |
 | `/api/dashboard` | Métricas administrativas. |
+
+### Cambios funcionales recientes
+
+- **Estacionamiento por función:** `GET /api/funciones/{funcion_id}/estacionamiento` devuelve `limite`, `vendidos` y `disponibles`. El cupo actual es de **20 plazas por función**. Al comprar servicios, el número de estacionamientos no puede superar las entradas de la compra ni el cupo disponible.
+- **Cancelación administrativa de funciones:** `PUT /api/funciones/{funcion_id}/cancelar` requiere una cuenta administradora y un JSON con `motivo`. Cancela entradas activas, registra el importe de devolución de entradas y servicios e intenta notificar por correo a los compradores. Las funciones canceladas permanecen en el historial y no pueden reactivarse.
+- **Validación de compras:** en `POST /api/compras`, cada elemento de `servicios` incluye `id_servicio`, `cantidad` y `precio` conforme a la implementación actual.
+
+> Estas rutas administrativas y de compra modifican datos reales. Para probarlas, usá una base de desarrollo y consultá los detalles y códigos de respuesta en el manual OpenAPI.
 
 Algunas rutas requieren un token JWT y otras además exigen el rol `administrador`. Las respuestas exitosas siguen, en general, la estructura `{ "ok": true, "data": ..., "message": ... }`; los errores devuelven `{ "ok": false, "error": { "code": ..., "message": ..., "details": ... } }`.
 
@@ -159,6 +167,7 @@ Backend_Api/
 ├── requirements.txt       # Dependencias de Python
 ├── .env.example           # Plantilla de configuración
 ├── Dockerfile             # Imagen del backend
+├── docs/                  # Manual de API OpenAPI 3.0
 ├── init.sh                # Inicialización del entorno local
 └── app/
     ├── routes/            # Endpoints de la API
@@ -187,4 +196,4 @@ El desarrollo del equipo se integra en la rama `develop`. Para una contribución
 
 - [Repositorio del frontend](https://github.com/NahuelGz1/Frontend-Web)
 - [Issue de documentación técnica #83](https://github.com/NahuelGz1/Backend_Api/issues/83)
-- [Manual de API (OpenAPI 3.0)](docs/Manual_API_Cine_paradiso.yaml)
+- [Manual de API (OpenAPI 3.0)](docs/Manual_API_Cine_paradiso.yaml).

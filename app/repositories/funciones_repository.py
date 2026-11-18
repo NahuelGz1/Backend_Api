@@ -1,5 +1,5 @@
-from app.db import ejecutar_consulta, ejecutar_mutacion
-from app.utils.constantes import ESTADO_ENTRADA_CANCELADA
+from app.db import ejecutar_consulta, ejecutar_mutacion, obtener_conexion
+from app.utils.constantes import ESTADO_ENTRADA_CANCELADA, ESTADO_ENTRADA_COMPRADA
 
 
 def listar_locales() -> list[dict]:
@@ -32,6 +32,8 @@ SELECT_FUNCION = """
               f.fecha_hora_proyeccion,
               f.activo,
               f.eliminada,
+              f.cancelada,
+              f.motivo_cancelacion,
               p.id AS pelicula_id,
               p.titulo AS pelicula_titulo,
               p.poster AS pelicula_poster,
@@ -90,7 +92,7 @@ def listar_funciones_de_sala(sala_id: int) -> list[dict]:
               p.duracion AS pelicula_duracion
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
-          WHERE f.id_sala = %s AND f.eliminada = FALSE
+          WHERE f.id_sala = %s AND f.eliminada = FALSE AND f.cancelada = FALSE
           ORDER BY f.fecha_hora_proyeccion ASC;
           """
     return ejecutar_consulta(sql, (sala_id,))
@@ -144,3 +146,42 @@ def cambiar_estado_funcion(funcion_id: int, activo: bool) -> None:
         "UPDATE funciones SET activo = %s WHERE id = %s",
         (activo, funcion_id),
     )
+
+
+def cancelar_funcion(funcion_id: int, motivo: str) -> list[dict]:
+    # en una sola transaccion: marca la funcion, toma las entradas vendidas y las cancela
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE funciones
+                SET activo = FALSE, cancelada = TRUE, motivo_cancelacion = %s
+                WHERE id = %s AND cancelada = FALSE
+                """,
+                (motivo, funcion_id),
+            )
+            cursor.execute(
+                """
+                SELECT e.id AS id_entrada, e.id_compra, e.numero_butaca, e.precio_historico,
+                       c.codigo_qr, u.id AS id_usuario, u.nombre, u.email
+                FROM entradas e
+                         JOIN compras c ON c.id = e.id_compra
+                         JOIN usuarios u ON u.id = c.id_usuario
+                WHERE e.id_funcion = %s AND e.estado = %s
+                ORDER BY e.id_compra, e.numero_butaca
+                """,
+                (funcion_id, ESTADO_ENTRADA_COMPRADA),
+            )
+            entradas = cursor.fetchall()
+            cursor.execute(
+                "UPDATE entradas SET estado = %s WHERE id_funcion = %s AND estado = %s",
+                (ESTADO_ENTRADA_CANCELADA, funcion_id, ESTADO_ENTRADA_COMPRADA),
+            )
+            conexion.commit()
+            return list(entradas)
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()

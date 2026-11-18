@@ -1,6 +1,7 @@
 # precios
 PRECIO_ENTRADA_FIJO = 10000.00
 MONEDA_SIMBOLO = "$"
+LIMITE_ESTACIONAMIENTO_POR_FUNCION = 20
 
 # roles de usuario
 ROL_ADMINISTRADOR = "administrador"
@@ -17,6 +18,7 @@ ESTADO_FUNCION_AGOTADA = "agotada"
 ESTADO_FUNCION_VENTA_CERRADA = "venta_cerrada"
 ESTADO_FUNCION_FINALIZADA = "finalizada"
 ESTADO_FUNCION_ELIMINADA = "eliminada"
+ESTADO_FUNCION_CANCELADA = "cancelada"
 
 # largo del hash qr
 LARGO_HASH_QR = 30

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.repositories import funciones_repository as repositorio
 from app.repositories import peliculas_repository
+from app.repositories import compras_repository
 from app.validators import funciones_validator as validador
 from app.utils.dates import datetime_a_string
 from app.utils.constantes import (
@@ -11,6 +12,7 @@ from app.utils.constantes import (
     ESTADO_FUNCION_VENTA_CERRADA,
     ESTADO_FUNCION_FINALIZADA,
     ESTADO_FUNCION_ELIMINADA,
+    ESTADO_FUNCION_CANCELADA,
 )
 
 
@@ -30,6 +32,8 @@ def _pelicula_vigente(fila) -> bool:
 def _estado_funcion(fila) -> str:
     if fila.get("eliminada"):
         return ESTADO_FUNCION_ELIMINADA
+    if fila.get("cancelada"):
+        return ESTADO_FUNCION_CANCELADA
     if _ya_se_proyecto(fila):
         return ESTADO_FUNCION_FINALIZADA
     if not fila.get("activo", True) or not _pelicula_vigente(fila):
@@ -47,6 +51,8 @@ def _funcion_a_dict(fila: dict) -> dict:
         "fecha_hora_proyeccion": datetime_a_string(fila["fecha_hora_proyeccion"]),
         "activo": bool(fila.get("activo", True)),
         "eliminada": bool(fila.get("eliminada", False)),
+        "cancelada": bool(fila.get("cancelada", False)),
+        "motivo_cancelacion": fila.get("motivo_cancelacion"),
         "pelicula_activa": bool(fila.get("pelicula_activa", True)),
         "pelicula_eliminada": bool(fila.get("pelicula_eliminada", False)),
         "precio_entrada": PRECIO_ENTRADA_FIJO,
@@ -107,11 +113,18 @@ def obtener_funcion_por_id(funcion_id: int, es_admin: bool = False) -> dict:
     return funcion_dict
 
 
+def obtener_disponibilidad_estacionamiento(funcion_id: int) -> dict:
+    _buscar_funcion_existente(funcion_id)
+    return compras_repository.obtener_disponibilidad_estacionamiento(funcion_id)
+
+
 # devuelve la funcion si todavia se pueden comprar entradas (la usan compras y el mapa de butacas)
 def verificar_funcion_vigente(funcion_id) -> dict:
     fila = repositorio.buscar_funcion_por_id(funcion_id)
     if fila is None or fila.get("eliminada"):
         raise ValueError("La función que elegiste no existe o ya no está disponible", 404)
+    if fila.get("cancelada"):
+        raise ValueError("La función fue cancelada por el cine, elegí otro horario", 409)
     if _ya_se_proyecto(fila):
         raise ValueError("La función ya comenzó, no se pueden comprar entradas", 409)
     if not fila.get("activo", True) or not _pelicula_vigente(fila):
@@ -124,6 +137,11 @@ def _buscar_funcion_existente(funcion_id, incluir_eliminadas=False):
     if fila is None or (fila.get("eliminada") and not incluir_eliminadas):
         raise ValueError(f"No existe la función {funcion_id}", 404)
     return fila
+
+
+def _verificar_no_cancelada(funcion, mensaje):
+    if funcion.get("cancelada"):
+        raise ValueError(mensaje, 409)
 
 
 def _buscar_pelicula_existente(id_pelicula):
@@ -202,6 +220,7 @@ def modificar_funcion(funcion_id, datos):
     if errores:
         raise ValueError("Hay datos inválidos en la solicitud", 400, errores)
 
+    _verificar_no_cancelada(actual, "No se puede modificar una función cancelada")
     if _ya_se_proyecto(actual):
         raise ValueError("No se puede modificar una función que ya se proyectó", 409)
 
@@ -226,7 +245,8 @@ def modificar_funcion(funcion_id, datos):
 def dar_baja_funcion(funcion_id):
     funcion = _buscar_funcion_existente(funcion_id)
 
-    # las funciones que ya pasaron quedan en el historial (y en las estadisticas)
+    # las funciones que ya pasaron o se cancelaron quedan en el historial (y en las estadisticas)
+    _verificar_no_cancelada(funcion, "La función fue cancelada y queda en el historial, no se puede eliminar")
     if _ya_se_proyecto(funcion):
         raise ValueError("No se puede eliminar una función que ya se proyectó, queda en el historial", 409)
 
@@ -243,6 +263,9 @@ def dar_baja_funcion(funcion_id):
 
 def cambiar_estado_funcion(funcion_id, activo):
     funcion = _buscar_funcion_existente(funcion_id)
+    _verificar_no_cancelada(
+        funcion, "La función fue cancelada, no se puede volver a activar. Programá una función nueva"
+    )
     if _ya_se_proyecto(funcion):
         raise ValueError("La función ya se proyectó, no se puede cambiar su estado", 409)
 
@@ -255,3 +278,12 @@ def cambiar_estado_funcion(funcion_id, activo):
             )
     repositorio.cambiar_estado_funcion(funcion_id, activo)
     return _funcion_a_dict(_buscar_funcion_existente(funcion_id))
+
+
+# chequea que se pueda cancelar la funcion (la usa la devolucion a los compradores)
+def verificar_funcion_cancelable(funcion_id) -> dict:
+    funcion = _buscar_funcion_existente(funcion_id)
+    _verificar_no_cancelada(funcion, "La función ya fue cancelada")
+    if _ya_se_proyecto(funcion):
+        raise ValueError("No se puede cancelar una función que ya se proyectó", 409)
+    return funcion

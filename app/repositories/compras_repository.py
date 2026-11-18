@@ -1,10 +1,66 @@
 from app.db import ejecutar_consulta, ejecutar_mutacion, obtener_conexion
-from app.utils.constantes import ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_CANCELADA, ESTADO_ENTRADA_UTILIZADA
+from app.utils.constantes import (
+    ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_CANCELADA, ESTADO_ENTRADA_UTILIZADA,
+    LIMITE_ESTACIONAMIENTO_POR_FUNCION,
+)
+from app.validators.compra_validator import validar_cupo_estacionamiento
+
+
+def obtener_disponibilidad_estacionamiento(id_funcion: int, cursor=None) -> dict:
+    """Cuenta cada detalle una vez mientras su compra tenga entradas activas en la función."""
+    sql = """
+          SELECT COALESCE(SUM(ds.cantidad), 0) AS vendidos
+          FROM detalles_servicios ds
+          JOIN servicios s ON s.id = ds.id_servicio
+          WHERE LOWER(s.nombre) LIKE %s
+            AND EXISTS (
+                SELECT 1 FROM entradas e
+                WHERE e.id_compra = ds.id_compra AND e.id_funcion = %s
+                  AND e.estado IN (%s, %s)
+            )
+          """
+    parametros = ("%estacionamiento%", id_funcion, ESTADO_ENTRADA_COMPRADA, ESTADO_ENTRADA_UTILIZADA)
+    if cursor is None:
+        vendidos = int(ejecutar_consulta(sql, parametros)[0]["vendidos"])
+    else:
+        cursor.execute(sql, parametros)
+        vendidos = int(cursor.fetchone()["vendidos"])
+    return {
+        "limite": LIMITE_ESTACIONAMIENTO_POR_FUNCION,
+        "vendidos": vendidos,
+        "disponibles": max(0, LIMITE_ESTACIONAMIENTO_POR_FUNCION - vendidos),
+    }
+
 
 def guardar_compra_completa(id_usuario: int, codigo_qr: str, entradas_data: list, servicios_data: list = None) -> int:
     conexion = obtener_conexion()
     try:
         with conexion.cursor() as cursor:
+            if servicios_data:
+                ids_funciones = {entrada["id_funcion"] for entrada in entradas_data}
+                if len(ids_funciones) != 1:
+                    raise ValueError("La compra debe contener entradas de una sola función.", 400)
+                id_funcion = next(iter(ids_funciones))
+                # El bloqueo serializa las compras de estacionamiento de la misma función.
+                cursor.execute("SELECT id FROM funciones WHERE id = %s FOR UPDATE", (id_funcion,))
+                if not cursor.fetchone():
+                    raise ValueError("La función no existe.", 404)
+
+                nombres = {}
+                for id_servicio in sorted({serv["id_servicio"] for serv in servicios_data}):
+                    cursor.execute("SELECT nombre FROM servicios WHERE id = %s FOR UPDATE", (id_servicio,))
+                    servicio = cursor.fetchone()
+                    if not servicio:
+                        raise ValueError(f"No existe el servicio {id_servicio}.", 400)
+                    nombres[id_servicio] = servicio["nombre"]
+                cantidad = sum(
+                    serv["cantidad"] for serv in servicios_data
+                    if "estacionamiento" in nombres[serv["id_servicio"]].lower()
+                )
+                if cantidad:
+                    disponibilidad = obtener_disponibilidad_estacionamiento(id_funcion, cursor)
+                    validar_cupo_estacionamiento(cantidad, len(entradas_data), disponibilidad["disponibles"])
+
             cursor.execute(
                 "INSERT INTO compras (id_usuario, codigo_qr) VALUES (%s, %s)",
                 (id_usuario, codigo_qr),

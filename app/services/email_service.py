@@ -116,3 +116,15 @@ def enviar_correo_compra(destinatario: str, detalles_compra: dict = None) -> boo
 
     cuerpo_html = renderizar_plantilla("correo-compra.html", **detalles)
     return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)
+
+
+def enviar_correo_cancelacion_funcion(destinatario: str, detalles_devolucion: dict = None) -> bool:
+    # Avisa que se cancelo la funcion, con el motivo y el detalle de lo que se devuelve
+    asunto = "⚠️ Cancelamos tu función - Devolución de tu compra en Cine Paradiso"
+
+    detalles = detalles_devolucion.copy() if detalles_devolucion else {}
+    if "email" not in detalles:
+        detalles["email"] = destinatario
+
+    cuerpo_html = renderizar_plantilla("correo-cancelacion-funcion.html", **detalles)
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)

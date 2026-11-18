@@ -55,6 +55,8 @@ CREATE TABLE funciones (
     fecha_hora_proyeccion DATETIME NOT NULL,
     activo BOOLEAN DEFAULT TRUE,
     eliminada BOOLEAN DEFAULT FALSE,
+    cancelada BOOLEAN DEFAULT FALSE,
+    motivo_cancelacion VARCHAR(255) NULL,
     FOREIGN KEY (id_pelicula) REFERENCES peliculas(id),
     FOREIGN KEY (id_sala) REFERENCES salas(id)
 );

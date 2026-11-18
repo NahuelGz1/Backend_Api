@@ -5,6 +5,7 @@ from app.utils.validators import validar_email
 from app.repositories import auth_repository, compras_repository, funciones_repository
 from app.services.email_service import enviar_correo_compra
 from app.services.funciones_service import verificar_funcion_vigente
+from app.validators.compra_validator import validar_servicios_compra
 from datetime import datetime, timedelta
 
 from app.utils.qr import generar_codigo_qr
@@ -39,6 +40,8 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
 
     if not id_funcion or isinstance(id_funcion, bool) or not butacas or not isinstance(butacas, list):
         raise ValueError("Faltan datos obligatorios: 'id_funcion' y 'butacas' (lista)", 400)
+
+    servicios = validar_servicios_compra(servicios)
 
     # solo se venden entradas de funciones activas, futuras y con lugar
     funcion = verificar_funcion_vigente(id_funcion)

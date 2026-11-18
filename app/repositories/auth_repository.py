@@ -162,9 +162,9 @@ def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
                      INNER JOIN funciones f ON e.id_funcion = f.id
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
                      INNER JOIN salas s ON f.id_sala = s.id
-                     LEFT JOIN resenas r ON r.id_usuario = c.id_usuario AND r.id_pelicula = p.id
+                     LEFT JOIN reseñas r ON r.id_usuario = c.id_usuario AND r.id_pelicula = p.id
             WHERE c.id_usuario = %s
-            ORDER BY f.fecha_hora_proyeccion DESC \
+            ORDER BY f.fecha_hora_proyeccion DESC
             """
     try:
         return ejecutar_consulta(query_nuevo, (id_usuario,))
@@ -190,7 +190,7 @@ def obtener_historial_entradas_por_usuario(id_usuario: int) -> list:
                      INNER JOIN peliculas p ON f.id_pelicula = p.id
                      INNER JOIN salas s ON f.id_sala = s.id
             WHERE e.id_usuario = %s
-            ORDER BY f.fecha_hora_proyeccion DESC \
+            ORDER BY f.fecha_hora_proyeccion DESC
             """
         return ejecutar_consulta(query_viejo, (id_usuario,))
 

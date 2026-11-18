@@ -104,6 +104,8 @@ sudo mysql < app/db/seed.sql
 
 Las migraciones que ejecuta `db.py` también pueden necesitar permisos de creación o alteración de tablas. Utilizá una cuenta MySQL con permisos adecuados para el entorno, evitando credenciales de administrador global en producción.
 
+La tabla `reseñas` se incluye en el esquema inicial. Para instalaciones existentes, `app/db/migrations/004_create_resenas.sql` la crea si no existe, sin modificar reseñas previas; seleccioná la base de datos al ejecutar el script. La comprobación automática de `db.py` se mantiene por compatibilidad cuando `AUTO_MIGRATE` está habilitado.
+
 ### 5. Iniciar el backend
 
 Con el entorno virtual activado y MySQL disponible:

@@ -173,10 +173,12 @@ def obtener_entradas_por_qr(codigo_qr: str) -> list[dict]:
     sql = """
           SELECT e.id AS id_entrada, c.id_usuario, c.id AS id_compra,
                  e.numero_butaca, e.codigo_qr, e.estado,
-                 f.fecha_hora_proyeccion, p.titulo AS pelicula,
+                 u.nombre AS nombre_usuario, u.email AS email_usuario,
+                 f.fecha_hora_proyeccion, p.titulo AS pelicula, f.id_pelicula,
                  s.nombre AS sala, s.local, e.precio_historico
           FROM entradas e
                    JOIN compras c ON e.id_compra = c.id
+                   JOIN usuarios u ON c.id_usuario = u.id
                    JOIN funciones f ON e.id_funcion = f.id
                    JOIN peliculas p ON f.id_pelicula = p.id
                    JOIN salas s ON f.id_sala = s.id

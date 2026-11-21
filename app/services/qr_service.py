@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta
 
+from itsdangerous import URLSafeTimedSerializer
+from app.services.email_service import enviar_correo_resena
+from app.utils.security import clave_secreta
 from app.repositories import compras_repository
 from app.utils.butacas import etiqueta_butaca
 from app.utils.dates import FORMATO_FECHA_HORA_LEGIBLE, ahora_argentina
@@ -231,4 +234,21 @@ def validar_canje(codigo_qr: str, categoria: str, id_detalle=None, id_entrada=No
     resumen = consultar_compra(codigo_qr)
     resumen["categoria_validada"] = categoria
     resumen["unidades_canjeadas"] = canjeados
+    # si se canjeó al menos una entrada y ya no quedan pendientes, se envía el correo de reseña
+    if (
+        categoria == CATEGORIA_ENTRADAS
+        and canjeados > 0
+        and resumen["categorias"][CATEGORIA_ENTRADAS]["pendientes"] == 0
+    ):
+        token_resena = URLSafeTimedSerializer(clave_secreta(), salt="resena-pelicula").dumps({
+            "id_usuario": primera["id_usuario"],
+            "id_pelicula": primera["id_pelicula"],
+        })
+        enviar_correo_resena(
+            destinatario=primera["email_usuario"],
+            nombre_usuario=primera["nombre_usuario"],
+            pelicula=primera["pelicula"],
+            token=token_resena,
+        )
+
     return resumen

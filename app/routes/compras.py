@@ -105,3 +105,20 @@ def crear_resena():
     except Exception as error:
         current_app.logger.error("No se pudo añadir la reseña (%s)", type(error).__name__)
         return responder_error(message="Error interno al añadir la reseña", code=500)  
+
+
+@compras_bp.route("/<int:compra_id>/servicios", methods=["POST"])
+@requiere_autenticacion
+def agregar_servicios_a_compra(compra_id: int):
+    try:
+        datos = request.get_json(silent=True) or {}
+        id_usuario = request.usuario_actual.get("sub")
+        resultado = reserva_service.agregar_servicios_compra_existente(compra_id, datos, id_usuario)
+        return responder_exito(data=resultado, message="Servicios agregados exitosamente", status_code=201)
+    except ValueError as e:
+        return responder_error_de_validacion(e)
+    except PermissionError as e:
+        return responder_error(message=str(e), code=403)
+    except Exception as error:
+        current_app.logger.error("No se pudieron agregar servicios a la compra (%s)", type(error).__name__)
+        return responder_error(message="Error interno al agregar servicios", code=500)

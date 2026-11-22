@@ -278,6 +278,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
                 servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
                 item = {
                     "id_compra": fila.get("id_compra"),
+                    "id_funcion": fila.get("id_funcion"),
                     "id_pelicula": fila.get("id_pelicula"),
                     "pelicula": {
                         "titulo": fila.get("pelicula_titulo", ""),

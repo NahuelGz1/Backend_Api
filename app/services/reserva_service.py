@@ -44,6 +44,21 @@ def procesar_compra(datos: dict, id_usuario: int) -> dict:
     butacas = datos.get("butacas")
     servicios = datos.get("servicios", [])
 
+    if not id_funcion and not butacas:
+        if not servicios:
+            raise ValueError("Debés seleccionar al menos un servicio o una función con butacas.", 400)
+        codigo_qr = hashlib.sha256(
+            f"servicios-{id_usuario}-{time.time()}".encode()
+        ).hexdigest()[:LARGO_HASH_QR]
+        id_compra = compras_repository.guardar_compra_solo_servicios(id_usuario, codigo_qr, servicios)
+        return {
+            "id_compra": id_compra,
+            "mensaje": "Compra de servicios procesada exitosamente",
+            "codigo_qr_texto": codigo_qr,
+            "qr_imagen_base64": generar_codigo_qr(codigo_qr),
+            "entradas": [],
+        }
+
     if not id_funcion or isinstance(id_funcion, bool) or not butacas or not isinstance(butacas, list):
         raise ValueError("Faltan datos obligatorios: 'id_funcion' y 'butacas' (lista)", 400)
 
@@ -237,4 +252,21 @@ def registrar_puntuacion(id_usuario: int, id_pelicula: int, puntuacion: int) -> 
         "puntuacion_usuario": puntuacion,
         "promedio": resumen["promedio"],
         "total_votos": resumen["total"]
+    }
+
+def agregar_servicios_compra_existente(compra_id: int, datos: dict, id_usuario: int) -> dict:
+    servicios = validar_servicios_compra(datos.get("servicios", []))
+    if not servicios:
+        raise ValueError("Debés seleccionar al menos un servicio para agregar a la compra.", 400)
+
+    compras_repository.agregar_servicios_a_compra(
+        compra_id, id_usuario, servicios, validar_funcion=validar_funcion_vigente
+    )
+    detalle = obtener_detalle_compra(compra_id, id_usuario)
+    return {
+        "id_compra": compra_id,
+        "mensaje": "Servicios agregados exitosamente a tu entrada",
+        "codigo_qr_texto": detalle["reserva"]["codigo_qr"],
+        "qr_imagen_base64": detalle["qr_imagen_base64"],
+        "entradas": [],
     }

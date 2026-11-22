@@ -140,30 +140,27 @@ def obtener_entrada_por_id(entrada_id: int) -> dict | None:
 
 
 def obtener_compra_completa(compra_id: int) -> dict | None:
+    cabecera = ejecutar_consulta(
+        "SELECT id, id_usuario, codigo_qr, fecha_hora FROM compras WHERE id = %s",
+        (compra_id,),
+    )
+    if not cabecera:
+        return None
     sql = """
-          SELECT c.id AS id_compra, c.id_usuario, c.codigo_qr AS codigo_compra,
-                 c.fecha_hora, e.id AS id_entrada, e.id_funcion,
+          SELECT e.id AS id_entrada, e.id_funcion,
                  e.numero_butaca, e.precio_historico, e.codigo_qr,
                  e.estado, f.fecha_hora_proyeccion, p.titulo AS pelicula,
                  p.poster, s.nombre AS sala, s.local
-          FROM compras c
-                   JOIN entradas e ON e.id_compra = c.id
+          FROM entradas e
                    JOIN funciones f ON e.id_funcion = f.id
                    JOIN peliculas p ON f.id_pelicula = p.id
                    JOIN salas s ON f.id_sala = s.id
-          WHERE c.id = %s
+          WHERE e.id_compra = %s
           ORDER BY e.numero_butaca
           """
     entradas = ejecutar_consulta(sql, (compra_id,))
-    if not entradas:
-        return None
     return {
-        "compra": {
-            "id": entradas[0]["id_compra"],
-            "id_usuario": entradas[0]["id_usuario"],
-            "codigo_qr": entradas[0]["codigo_compra"],
-            "fecha_hora": entradas[0]["fecha_hora"],
-        },
+        "compra": cabecera[0],
         "entradas": entradas,
         "servicios": obtener_servicios_por_compra(compra_id),
     }
@@ -359,3 +356,161 @@ def ver_puntuaciones(id_pelicula: int) -> dict:
             "total": int(resultado[0]["total"] or 0)
         }
     return {"promedio": 0, "total": 0}
+
+
+def agregar_servicios_a_compra(
+    id_compra: int, id_usuario: int, servicios_data: list, *, validar_funcion,
+) -> int:
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, id_usuario FROM compras WHERE id = %s FOR UPDATE",
+                (id_compra,),
+            )
+            compra = cursor.fetchone()
+            if not compra:
+                raise ValueError("La compra seleccionada no existe.", 404)
+            if int(compra["id_usuario"]) != int(id_usuario):
+                raise PermissionError("No tenés permiso para modificar esta compra.")
+
+            cursor.execute(
+                """
+                SELECT id_funcion, estado FROM entradas
+                WHERE id_compra = %s FOR UPDATE
+                """,
+                (id_compra,),
+            )
+            entradas = cursor.fetchall()
+            activas = [e for e in entradas if e["estado"] == ESTADO_ENTRADA_COMPRADA]
+            if not activas:
+                raise ValueError("La compra no tiene entradas activas disponibles para adjuntar servicios.", 409)
+
+            id_funcion = activas[0]["id_funcion"]
+            cursor.execute(
+                """
+                SELECT f.fecha_hora_proyeccion, f.activo, f.eliminada, f.cancelada,
+                       p.activo AS pelicula_activa, p.eliminada AS pelicula_eliminada
+                FROM funciones f
+                JOIN peliculas p ON p.id = f.id_pelicula
+                WHERE f.id = %s FOR UPDATE
+                """,
+                (id_funcion,),
+            )
+            validar_funcion(cursor.fetchone())
+
+            # Servicios ya comprados previamente en esta misma compra (para respetar topes por entrada)
+            cursor.execute(
+                """
+                SELECT ds.cantidad, s.nombre
+                FROM detalles_servicios ds
+                JOIN servicios s ON s.id = ds.id_servicio
+                WHERE ds.id_compra = %s FOR UPDATE
+                """,
+                (id_compra,),
+            )
+            previos = cursor.fetchall()
+            estacionamiento_previo = sum(
+                int(p["cantidad"]) for p in previos if "estacionamiento" in p["nombre"].lower()
+            )
+            vip_previo = sum(
+                int(p["cantidad"]) for p in previos if "vip" in p["nombre"].lower()
+            )
+
+            catalogo = {}
+            for id_servicio in sorted({serv["id_servicio"] for serv in servicios_data}):
+                cursor.execute(
+                    "SELECT nombre, precio, activo FROM servicios WHERE id = %s FOR UPDATE",
+                    (id_servicio,),
+                )
+                servicio = cursor.fetchone()
+                if not servicio or not servicio["activo"]:
+                    raise ValueError("Un servicio ya no está disponible. Revisá tu compra.", 409)
+                catalogo[id_servicio] = servicio
+
+            estacionamiento_nuevo = 0
+            vip_nuevo = 0
+            for serv in servicios_data:
+                if serv["precio"] != catalogo[serv["id_servicio"]]["precio"]:
+                    raise ValueError("El precio de un servicio cambió. Revisá tu compra antes de confirmar.", 409)
+                nombre_serv = catalogo[serv["id_servicio"]]["nombre"].lower()
+                if "estacionamiento" in nombre_serv:
+                    estacionamiento_nuevo += serv["cantidad"]
+                elif "vip" in nombre_serv:
+                    vip_nuevo += serv["cantidad"]
+
+            if vip_previo + vip_nuevo > len(activas):
+                raise ValueError("La cantidad total de accesos VIP no puede superar la cantidad de entradas.", 400)
+
+            if estacionamiento_nuevo:
+                disponibilidad = obtener_disponibilidad_estacionamiento(id_funcion, cursor)
+                validar_cupo_estacionamiento(
+                    estacionamiento_previo + estacionamiento_nuevo,
+                    len(activas),
+                    disponibilidad["disponibles"] + estacionamiento_previo,
+                )
+
+            sql_servicio = """
+                           INSERT INTO detalles_servicios (id_compra, id_servicio, cantidad, precio_historico)
+                           VALUES (%s, %s, %s, %s)
+                           """
+            for serv in servicios_data:
+                cursor.execute(sql_servicio, (
+                    id_compra, serv["id_servicio"], serv["cantidad"],
+                    catalogo[serv["id_servicio"]]["precio"],
+                ))
+
+            conexion.commit()
+            return id_compra
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+def guardar_compra_solo_servicios(id_usuario: int, codigo_qr: str, servicios_data: list) -> int:
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            catalogo = {}
+            for id_servicio in sorted({serv["id_servicio"] for serv in servicios_data}):
+                cursor.execute(
+                    "SELECT nombre, precio, activo FROM servicios WHERE id = %s FOR UPDATE",
+                    (id_servicio,),
+                )
+                servicio = cursor.fetchone()
+                if not servicio or not servicio["activo"]:
+                    raise ValueError("Un servicio ya no está disponible. Revisá tu compra.", 409)
+                nombre_norm = servicio["nombre"].lower()
+                if "estacionamiento" in nombre_norm or "vip" in nombre_norm:
+                    raise ValueError("Estacionamiento y Acceso VIP requieren una entrada asociada.", 400)
+                catalogo[id_servicio] = servicio
+
+            for serv in servicios_data:
+                if serv["precio"] != catalogo[serv["id_servicio"]]["precio"]:
+                    raise ValueError("El precio de un servicio cambió. Revisá tu compra antes de confirmar.", 409)
+
+            cursor.execute(
+                "INSERT INTO compras (id_usuario, codigo_qr) VALUES (%s, %s)",
+                (id_usuario, codigo_qr),
+            )
+            id_compra = cursor.lastrowid
+
+            sql_servicio = """
+                           INSERT INTO detalles_servicios (id_compra, id_servicio, cantidad, precio_historico)
+                           VALUES (%s, %s, %s, %s)
+                           """
+            for serv in servicios_data:
+                cursor.execute(sql_servicio, (
+                    id_compra, serv["id_servicio"], serv["cantidad"],
+                    catalogo[serv["id_servicio"]]["precio"],
+                ))
+
+            conexion.commit()
+            return id_compra
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()

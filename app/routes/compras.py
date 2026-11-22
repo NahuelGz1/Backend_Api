@@ -1,6 +1,6 @@
 from flask import Blueprint, request, current_app
 from app.services import qr_service, reserva_service
-from app.utils.decorators import requiere_autenticacion, requiere_administrador
+from app.utils.decorators import requiere_autenticacion, requiere_administrador, requiere_personal
 from app.utils.response import responder_exito, responder_error, responder_error_de_validacion
 from itsdangerous import BadData, URLSafeTimedSerializer
 from app.utils.security import clave_secreta
@@ -51,7 +51,7 @@ def endpoint_cancelar_compra(compra_id: int):
 
 @compras_bp.route("/qr/<path:codigo_qr>", methods=["GET"])
 @requiere_autenticacion
-@requiere_administrador
+@requiere_personal
 def consultar_qr_compra(codigo_qr: str):
     try:
         resultado = qr_service.consultar_compra(codigo_qr)
@@ -66,7 +66,7 @@ def consultar_qr_compra(codigo_qr: str):
 
 @compras_bp.route("/validar-qr", methods=["POST"])
 @requiere_autenticacion
-@requiere_administrador
+@requiere_personal
 def validar_qr_compra():
     try:
         datos = request.get_json(silent=True) or {}

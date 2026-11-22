@@ -218,3 +218,10 @@ def actualizar_usuario(id_usuario: int, datos: dict) -> int:
         if error.args[0] == 1062:
             raise ValueError("El correo electrónico ya se encuentra registrado.") from error
         raise
+
+def listar_empleados() -> list[dict]:
+    return ejecutar_consulta(
+        """SELECT id, nombre, email, rol FROM usuarios
+        WHERE rol = %s ORDER BY email""",
+        ("empleado",),
+    )

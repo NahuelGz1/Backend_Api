@@ -127,7 +127,7 @@ def agregar_servicios_a_compra(compra_id: int):
 
 @compras_bp.route("/resena/desde-mail", methods=["POST"])
 def crear_resena_desde_mail():
-try:
+    try:
         datos = request.get_json(silent=True) or {}
         token = datos.get("token")
         puntuacion = datos.get("puntuacion")

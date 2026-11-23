@@ -277,6 +277,20 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         if clave in compras_proximas:
             if clave not in proximas_por_compra:
                 servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
+                servicios_agrupados = {}
+                for servicio in servicios_compra:
+                    nombre_serv = servicio.get("servicio_nombre", "")
+                    precio_serv = float(servicio.get("precio") or 0)
+                    cant_serv = int(servicio.get("cantidad") or 1)
+                    clave_serv = (servicio.get("id_servicio"), nombre_serv, precio_serv)
+                    if clave_serv not in servicios_agrupados:
+                        servicios_agrupados[clave_serv] = {
+                            "nombre": nombre_serv,
+                            "cantidad": 0,
+                            "precio": precio_serv,
+                        }
+                    servicios_agrupados[clave_serv]["cantidad"] += cant_serv
+
                 item = {
                     "id_compra": fila.get("id_compra"),
                     "id_funcion": fila.get("id_funcion"),
@@ -289,14 +303,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
                     "horario": horario_str,
                     "complejo": fila.get("cine_local", ""),
                     "sala": fila.get("sala_nombre", ""),
-                    "servicios": [
-                        {
-                            "nombre": servicio.get("servicio_nombre", ""),
-                            "cantidad": int(servicio.get("cantidad") or 1),
-                            "precio": float(servicio.get("precio") or 0),
-                        }
-                        for servicio in servicios_compra
-                    ],
+                    "servicios": list(servicios_agrupados.values()),
                     "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", "")
                 }
                 item["numeros_butacas"] = []

@@ -157,3 +157,37 @@ def actualizar_perfil_usuario():
         return responder_error(message=str(e), status_code=400)
     except Exception as e:
         return responder_error(message="Error interno al actualizar el perfil", status_code=500)
+
+
+@auth_bp.route("/usuarios/empleados", methods=["POST"])
+@requiere_autenticacion
+@requiere_administrador
+def habilitar_empleados():
+    datos = datos_json()
+    resultado = auth_service.habilitar_empleado(
+        request.usuario_actual.get("sub"),
+        datos.get("email"),
+    )
+    return responder_exito(
+        data=resultado,
+        message="Empleado habilitado correctamente",
+        status_code=200,
+    )
+
+
+@auth_bp.route("/usuarios/empleados", methods=["GET"])
+@requiere_autenticacion
+@requiere_administrador
+def listar_empleados():
+    datos = auth_service.consultar_empleados(request.usuario_actual.get("sub"))
+    return responder_exito(data=datos, message="Empleados obtenidos correctamente")
+
+
+@auth_bp.route("/usuarios/empleados/<int:id_usuario>", methods=["DELETE"])
+@requiere_autenticacion
+@requiere_administrador
+def dar_de_baja_empleado(id_usuario):
+    auth_service.dar_de_baja_empleado(
+        request.usuario_actual.get("sub"), id_usuario
+    )
+    return responder_exito(data=None, message="Empleado dado de baja correctamente")

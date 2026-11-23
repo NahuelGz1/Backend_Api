@@ -5,7 +5,7 @@ import jwt
 from app.repositories.auth_repository import obtener_credenciales_por_id
 from app.utils.security import clave_secreta, version_credencial
 from app.utils.response import responder_error
-from app.utils.constantes import ROL_ADMINISTRADOR
+from app.utils.constantes import ROL_ADMINISTRADOR, ROL_EMPLEADO
 
 def requiere_autenticacion(f):
     @wraps(f)
@@ -45,6 +45,18 @@ def requiere_administrador(f):
         rol = str(usuario.get("rol", "")).lower() if usuario else ""
         if not usuario or rol != ROL_ADMINISTRADOR:
             return responder_error(code=403, message="Acceso restringido a administradores")
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def requiere_personal(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        usuario = getattr(request, "usuario_actual", None)
+        rol = str(usuario.get("rol", "")).lower() if usuario else ""
+        if not usuario or rol not in (ROL_EMPLEADO, ROL_ADMINISTRADOR):
+            return responder_error(code=403, message="Acceso restringido al personal autorizado")
         return f(*args, **kwargs)
 
     return decorated

@@ -19,9 +19,17 @@ def mock_url_for(endpoint: str, **kwargs) -> str:
         "auth_views.restablecer_contrasena": f"{frontend_url}/auth/restablecer-contrasena",
         "cliente_views.cartelera": f"{frontend_url}/cartelera",
         "cliente_views.mi_perfil": f"{frontend_url}/mi-perfil",
+        "cliente_views.puntuar_desde_mail": f"{frontend_url}/puntuar-desde-mail",
     }
 
-    return rutas.get(endpoint, f"{frontend_url}/{endpoint.replace('.', '/')}")
+    url = rutas.get(endpoint, f"{frontend_url}/{endpoint.replace('.', '/')}")
+
+    if kwargs:
+        query = "&".join(f"{k}={v}" for k, v in kwargs.items())
+        separador = "&" if "?" in url else "?"
+        url = f"{url}{separador}{query}"
+
+    return url
 
 
 def _obtener_jinja_env() -> Environment:
@@ -127,4 +135,18 @@ def enviar_correo_cancelacion_funcion(destinatario: str, detalles_devolucion: di
         detalles["email"] = destinatario
 
     cuerpo_html = renderizar_plantilla("correo-cancelacion-funcion.html", **detalles)
+    return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)
+
+
+def enviar_correo_resena(destinatario: str, nombre_usuario: str, pelicula: str, token: str) -> bool:
+    # Arma y envia el correo invitando a puntuar la pelicula
+    asunto = f"⭐ ¿Contanos qué te pareció {pelicula}? - Cine Paradiso"
+
+    cuerpo_html = renderizar_plantilla(
+        "correo-resena.html",
+        nombre=nombre_usuario,
+        pelicula=pelicula,
+        token=token,
+    )
+
     return enviar_correo(destinatario, asunto, cuerpo_html, es_html=True)

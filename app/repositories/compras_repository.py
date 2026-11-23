@@ -452,15 +452,36 @@ def agregar_servicios_a_compra(
                     disponibilidad["disponibles"] + estacionamiento_previo,
                 )
 
-            sql_servicio = """
-                           INSERT INTO detalles_servicios (id_compra, id_servicio, cantidad, precio_historico)
-                           VALUES (%s, %s, %s, %s)
-                           """
             for serv in servicios_data:
-                cursor.execute(sql_servicio, (
-                    id_compra, serv["id_servicio"], serv["cantidad"],
-                    catalogo[serv["id_servicio"]]["precio"],
-                ))
+                precio_actual = catalogo[serv["id_servicio"]]["precio"]
+                cursor.execute(
+                    """
+                    SELECT id FROM detalles_servicios
+                    WHERE id_compra = %s AND id_servicio = %s AND precio_historico = %s
+                    ORDER BY id ASC LIMIT 1
+                    FOR UPDATE
+                    """,
+                    (id_compra, serv["id_servicio"], precio_actual),
+                )
+                existente = cursor.fetchone()
+                if existente:
+                    cursor.execute(
+                        """
+                        UPDATE detalles_servicios
+                        SET usado = (cantidad_usada >= cantidad + %s),
+                            cantidad = cantidad + %s
+                        WHERE id = %s
+                        """,
+                        (serv["cantidad"], serv["cantidad"], existente["id"]),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO detalles_servicios (id_compra, id_servicio, cantidad, precio_historico)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (id_compra, serv["id_servicio"], serv["cantidad"], precio_actual),
+                    )
 
             conexion.commit()
             return id_compra

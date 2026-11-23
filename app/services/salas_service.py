@@ -34,6 +34,13 @@ def modificar_sala(sala_id, datos):
     if not sala_actual:
         raise ValueError(f"No existe la sala {sala_id}")
 
+    if "activo" in datos:
+        activo = datos["activo"]
+        if not isinstance(activo, bool):
+            raise ValueError("El estado de mantenimiento debe ser verdadero o falso")
+        salas_repository.cambiar_estado(sala_id, activo)
+        sala_actual = salas_repository.buscar_por_id(sala_id)
+
     nombre = datos.get("nombre", sala_actual["nombre"])
     capacidad = datos.get("capacidad", sala_actual["capacidad"])
     local = datos.get("local", sala_actual["local"])

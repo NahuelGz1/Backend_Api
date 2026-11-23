@@ -31,7 +31,8 @@ CREATE TABLE salas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL,
     capacidad INT NOT NULL,
-    local VARCHAR(100) NOT NULL
+    local VARCHAR(100) NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Servicios extra (comida, bebida, etc)

@@ -36,7 +36,7 @@ def _estado_funcion(fila) -> str:
         return ESTADO_FUNCION_CANCELADA
     if _ya_se_proyecto(fila):
         return ESTADO_FUNCION_FINALIZADA
-    if not fila.get("activo", True) or not _pelicula_vigente(fila):
+    if not fila.get("activo", True) or not _pelicula_vigente(fila) or not fila.get("sala_activa", True):
         return ESTADO_FUNCION_VENTA_CERRADA
     if int(fila.get("entradas_activas") or 0) >= int(fila.get("sala_capacidad") or 0):
         return ESTADO_FUNCION_AGOTADA
@@ -55,6 +55,7 @@ def _funcion_a_dict(fila: dict) -> dict:
         "motivo_cancelacion": fila.get("motivo_cancelacion"),
         "pelicula_activa": bool(fila.get("pelicula_activa", True)),
         "pelicula_eliminada": bool(fila.get("pelicula_eliminada", False)),
+        "sala_activa": bool(fila.get("sala_activa", True)),
         "precio_entrada": PRECIO_ENTRADA_FIJO,
         "capacidad": capacidad,
         "entradas_vendidas": vendidas,
@@ -72,6 +73,7 @@ def _funcion_a_dict(fila: dict) -> dict:
             "nombre": fila["sala_nombre"],
             "local": fila["sala_local"],
             "capacidad": capacidad,
+            "activo": bool(fila.get("sala_activa", True)),
         },
     }
 
@@ -89,6 +91,7 @@ def obtener_salas(local: str = None) -> list:
             "nombre": f["nombre"],
             "capacidad": f["capacidad"],
             "local": f["local"],
+            "activo": bool(f.get("activo", True)),
         }
         for f in filas
     ]
@@ -132,7 +135,7 @@ def validar_funcion_vigente(fila) -> None:
         raise ValueError("La función fue cancelada por el cine, elegí otro horario", 409)
     if _ya_se_proyecto(fila):
         raise ValueError("La función ya comenzó, no se pueden comprar entradas", 409)
-    if not fila.get("activo", True) or not _pelicula_vigente(fila):
+    if not fila.get("activo", True) or not _pelicula_vigente(fila) or not fila.get("sala_activa", True):
         raise ValueError("La venta de entradas para esta función está cerrada", 409)
 
 
@@ -158,8 +161,11 @@ def _buscar_pelicula_existente(id_pelicula):
 
 
 def _verificar_sala_existente(id_sala):
-    if repositorio.buscar_sala_por_id(id_sala) is None:
+    sala = repositorio.buscar_sala_por_id(id_sala)
+    if sala is None:
         raise ValueError(f"No existe la sala {id_sala}", 404)
+    if not sala.get("activo", True):
+        raise ValueError("No se pueden programar funciones en una sala en mantenimiento", 409)
 
 
 def _verificar_fecha_futura(fecha_hora):

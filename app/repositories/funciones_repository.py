@@ -13,7 +13,7 @@ def listar_locales() -> list[dict]:
 
 def listar_salas(local: str | None = None) -> list[dict]:
     sql = """
-          SELECT id, nombre, capacidad, local
+          SELECT id, nombre, capacidad, local, activo
           FROM salas
           """
     parametros = []
@@ -44,6 +44,7 @@ SELECT_FUNCION = """
               s.nombre AS sala_nombre,
               s.local AS sala_local,
               s.capacidad AS sala_capacidad,
+              s.activo AS sala_activa,
               (
                   SELECT COUNT(*)
                   FROM entradas e
@@ -59,7 +60,7 @@ def listar_funciones(incluir_inactivas: bool = False, desde=None) -> list[dict]:
     sql = SELECT_FUNCION + " WHERE f.eliminada = FALSE"
     parametros = [ESTADO_ENTRADA_CANCELADA]
     if not incluir_inactivas:
-        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE"
+        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE AND s.activo = TRUE"
     if desde is not None:
         sql += " AND f.fecha_hora_proyeccion > %s"
         parametros.append(desde)
@@ -75,7 +76,7 @@ def buscar_funcion_por_id(funcion_id: int) -> dict | None:
 
 def buscar_sala_por_id(sala_id: int) -> dict | None:
     sql = """
-          SELECT id, nombre, capacidad, local
+          SELECT id, nombre, capacidad, local, activo
           FROM salas
           WHERE id = %s;
           """

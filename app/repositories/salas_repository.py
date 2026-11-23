@@ -3,7 +3,7 @@ from app.db import ejecutar_consulta, ejecutar_mutacion
 
 def listar_salas(local=None):
     sql = """
-          SELECT id, nombre, capacidad, local
+          SELECT id, nombre, capacidad, local, activo
           FROM salas \
           """
 
@@ -20,7 +20,7 @@ def listar_salas(local=None):
 
 def buscar_por_id(sala_id):
     sql = """
-          SELECT id, nombre, capacidad, local
+          SELECT id, nombre, capacidad, local, activo
           FROM salas
           WHERE id = %s \
           """
@@ -54,3 +54,7 @@ def crear(nombre, capacidad, local):
         sql,
         (nombre, capacidad, local),
     )
+
+
+def cambiar_estado(sala_id, activo):
+    ejecutar_mutacion("UPDATE salas SET activo = %s WHERE id = %s", (activo, sala_id))

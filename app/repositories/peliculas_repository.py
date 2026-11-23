@@ -22,6 +22,7 @@ def _sql_funciones_vigentes(solo_una_pelicula: bool = False) -> str:
           FROM funciones
                    JOIN salas ON salas.id = funciones.id_sala
           WHERE funciones.activo = TRUE
+            AND salas.activo = TRUE
             AND funciones.eliminada = FALSE
             AND funciones.fecha_hora_proyeccion > %s \
           """.format(cancelada=ESTADO_ENTRADA_CANCELADA)
@@ -42,6 +43,7 @@ def listar_peliculas_en_cartelera() -> list[dict]:
               FROM funciones
               WHERE funciones.id_pelicula = peliculas.id
                 AND funciones.activo = TRUE
+                AND EXISTS (SELECT 1 FROM salas WHERE salas.id = funciones.id_sala AND salas.activo = TRUE)
                 AND funciones.fecha_hora_proyeccion > %s
           )
           ORDER BY peliculas.titulo \

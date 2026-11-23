@@ -14,12 +14,10 @@ def _completar_datos_faltantes_con_tmdb(pelicula: dict):
 
     titulo = pelicula.get("titulo")
     try:
-        resultados = tmdb.buscar_peliculas(titulo)
-
-        if resultados:
-            mejor = resultados[0]
-            nueva_sinopsis = mejor.get("sinopsis")
-            nuevo_poster = mejor.get("poster")
+        datos = tmdb.obtener_datos_pelicula(titulo)
+        if datos:
+            nuevo_poster = datos.get("poster")
+            nueva_sinopsis = datos.get("sinopsis")
 
             if nuevo_poster and not pelicula.get("poster"):
                 pelicula["poster"] = nuevo_poster
@@ -160,19 +158,20 @@ def buscar_peliculas_en_tmdb(titulo: str) -> list:
 
 
 def obtener_proximos_estrenos() -> list:
-    """Devuelve la lista de próximos estrenos recuperados desde la API de TMDB."""
-    try:
-        estrenos_crudos = tmdb.obtener_proximos_estrenos()
-        estrenos_formateados = []
-        for item in estrenos_crudos:
-            estrenos_formateados.append({
-                "id": item.get("tmdb_id"),
-                "titulo": item.get("titulo"),
-                "sinopsis": item.get("sinopsis"),
-                "poster": item.get("poster"),
-                "fecha_estreno": item.get("fecha_estreno"),
-                "genero": item.get("genero")
-            })
-        return estrenos_formateados
-    except Exception:
-        return []
+    """Devuelve las películas activas que aún no tienen funciones asignadas."""
+    peliculas = repositorio.listar_estrenos()
+    estrenos_formateados = []
+    for pelicula in peliculas:
+        _completar_datos_faltantes_con_tmdb(pelicula)
+        estrenos_formateados.append({
+            "id": pelicula.get("id"),
+            "titulo": pelicula.get("titulo"),
+            "sinopsis": pelicula.get("sinopsis"),
+            "poster": pelicula.get("poster"),
+            "fecha_estreno": "",
+            "disponible_desde": "Próximamente",
+            "genero": pelicula.get("genero"),
+            "duracion": pelicula.get("duracion"),
+            "clasificacion": pelicula.get("clasificacion"),
+        })
+    return estrenos_formateados

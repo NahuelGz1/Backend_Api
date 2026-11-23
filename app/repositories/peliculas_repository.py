@@ -49,6 +49,23 @@ def listar_peliculas_en_cartelera() -> list[dict]:
     return ejecutar_consulta(sql, (_ahora(),))
 
 
+def listar_estrenos() -> list[dict]:
+    """Películas activas que no tienen ninguna función asignada."""
+    sql = """
+          SELECT peliculas.id, peliculas.titulo, peliculas.sinopsis, peliculas.poster, peliculas.duracion,
+                 peliculas.clasificacion, peliculas.genero, peliculas.activo, peliculas.eliminada
+          FROM peliculas
+          WHERE peliculas.activo = TRUE AND peliculas.eliminada = FALSE AND NOT EXISTS (
+              SELECT 1
+              FROM funciones
+              WHERE funciones.id_pelicula = peliculas.id
+                AND funciones.eliminada = FALSE
+          )
+          ORDER BY peliculas.titulo \
+          """
+    return ejecutar_consulta(sql)
+
+
 def listar_todas() -> list[dict]:
     return ejecutar_consulta(
         """

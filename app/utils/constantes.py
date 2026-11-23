@@ -6,6 +6,7 @@ LIMITE_ESTACIONAMIENTO_POR_FUNCION = 20
 # roles de usuario
 ROL_ADMINISTRADOR = "administrador"
 ROL_CLIENTE = "cliente"
+ROL_EMPLEADO = "empleado"
 
 # estados de entradas
 ESTADO_ENTRADA_COMPRADA = "comprada"

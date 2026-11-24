@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from app.db import ejecutar_consulta, ejecutar_mutacion
+from app.db import ejecutar_consulta, ejecutar_mutacion, obtener_conexion
 from app.utils.constantes import ESTADO_ENTRADA_CANCELADA
 
 
@@ -134,12 +134,54 @@ def insertar(pelicula: dict) -> int:
     )
     return ejecutar_mutacion(sql, parametros)
 
+
+def actualizar(pelicula_id: int, cambios: dict, ahora) -> None:
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT id, titulo, duracion, eliminada FROM peliculas WHERE id = %s FOR UPDATE", (pelicula_id,))
+            actual = cursor.fetchone()
+            if not actual or actual["eliminada"]:
+                raise ValueError("Película no encontrada", 404)
+            titulo = cambios.get("titulo", actual["titulo"])
+            duracion = cambios.get("duracion", actual["duracion"])
+            cursor.execute(
+                "SELECT id FROM peliculas WHERE titulo = %s AND duracion = %s AND id != %s LIMIT 1",
+                (titulo, duracion, pelicula_id),
+            )
+            if cursor.fetchone():
+                raise ValueError("Ya existe una película con ese título y esa duración", 409)
+            if duracion != actual["duracion"]:
+                cursor.execute(
+                    """
+                    SELECT 1 FROM funciones
+                    WHERE id_pelicula = %s AND eliminada = FALSE AND cancelada = FALSE
+                      AND DATE_ADD(fecha_hora_proyeccion, INTERVAL (COALESCE(%s, 0) + 15) MINUTE) > %s
+                    LIMIT 1
+                    """,
+                    (pelicula_id, actual["duracion"], ahora),
+                )
+                if cursor.fetchone():
+                    raise ValueError("No se puede cambiar la duración mientras haya funciones futuras o en curso. Cancelalas o esperá a que terminen.", 409)
+            campos = ("titulo", "sinopsis", "poster", "duracion", "clasificacion", "genero", "activo")
+            seleccionados = [campo for campo in campos if campo in cambios]
+            cursor.execute(
+                "UPDATE peliculas SET " + ", ".join(f"{campo} = %s" for campo in seleccionados) + " WHERE id = %s",
+                tuple(cambios[campo] for campo in seleccionados) + (pelicula_id,),
+            )
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
 # guarda tmdb
 def actualizar_datos_tmdb(pelicula_id: int, sinopsis: str | None, poster: str | None) -> int:
     sql = """
           UPDATE peliculas
-          SET sinopsis = COALESCE(%s, sinopsis),
-              poster = COALESCE(%s, poster)
+          SET sinopsis = COALESCE(NULLIF(sinopsis, ''), %s),
+              poster = COALESCE(NULLIF(poster, ''), %s)
           WHERE id = %s
           """
     return ejecutar_mutacion(sql, (sinopsis, poster, pelicula_id))

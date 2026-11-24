@@ -97,8 +97,11 @@ sudo mysql < app/db/init_db.sql
 El repositorio también incluye `app/db/seed.sql` con datos iniciales y registros de prueba. Su ejecución es **opcional** y debe reservarse a una base nueva de desarrollo:
 
 ```bash
+sudo mysql cine_paradiso < app/db/catalogo_servicios.sql
 sudo mysql < app/db/seed.sql
 ```
+
+El catálogo de servicios se carga antes del seed, que lo necesita para la compra de prueba. Por defecto, `catalogo_servicios.sql` inserta únicamente nombres que todavía no existan y conserva los servicios existentes. Para restaurar explícitamente el catálogo de desarrollo, las instrucciones de Docker indican cómo activar `@restablecer_catalogo`: esta operación sobrescribe los doce servicios iniciales, elimina sus imágenes personalizadas y desactiva los demás sin borrar su historial. La comparación usa el nombre y la intercalación de la base; un servicio renombrado quedará inactivo y se creará uno nuevo. Los cambios posteriores no se sincronizan automáticamente.
 
 **Importante:** no vuelvas a ejecutar estos archivos sobre una base con datos. El script de tablas no es una migración general para instalaciones existentes y el de datos puede insertar registros duplicados. Antes de cualquier cambio de esquema, realizá un respaldo y revisá las migraciones disponibles en `app/db/migrations/` (incluida `003_add_cancelacion_funciones.sql`, que agrega el estado y el motivo de cancelación).
 
@@ -107,6 +110,8 @@ Las migraciones que ejecuta `db.py` también pueden necesitar permisos de creaci
 La tabla `reseñas` se incluye en el esquema inicial. Para instalaciones existentes, `app/db/migrations/004_create_resenas.sql` la crea si no existe, sin modificar reseñas previas; seleccioná la base de datos al ejecutar el script. La comprobación automática de `db.py` se mantiene por compatibilidad cuando `AUTO_MIGRATE` está habilitado.
 
 La película destacada se guarda en `pelicula_destacada`. En instalaciones existentes se crea al iniciar con `AUTO_MIGRATE=true`, o manualmente con `app/db/migrations/005_create_pelicula_destacada.sql` sobre la base seleccionada. Un administrador puede elegirla desde una función activa y futura; si deja de tener funciones vigentes, la portada muestra otra película de cartelera hasta que vuelva a estar disponible o se elija otra.
+
+La edición de películas permite actualizar sus datos y cargar un afiche JPG o PNG de hasta 5 MB. No se puede cambiar la duración mientras tenga funciones futuras o en curso. El campo `poster` se amplía a `MEDIUMTEXT` automáticamente con `AUTO_MIGRATE=true`; si las migraciones automáticas están desactivadas, aplicá `app/db/migrations/006_ampliar_poster_pelicula.sql` sobre la base correspondiente.
 
 ### 5. Iniciar el backend
 
@@ -151,6 +156,7 @@ Las rutas se registran en `app.py`. Con la configuración predeterminada, los gr
 
 ### Cambios funcionales recientes
 
+- **Configuración de salas:** no se puede modificar el nombre, complejo o capacidad de una sala con entradas no canceladas para funciones futuras. Para pasarla a mantenimiento deben terminar sus funciones activas en curso (incluidos 15 minutos de limpieza) y desactivar o cancelar las futuras. Las compras vuelven a comprobar la capacidad al confirmarse.
 - **Estacionamiento por función:** `GET /api/funciones/{funcion_id}/estacionamiento` devuelve `limite`, `vendidos` y `disponibles`. El cupo actual es de **20 plazas por función**. Al comprar servicios, el número de estacionamientos no puede superar las entradas de la compra ni el cupo disponible.
 - **Cancelación administrativa de funciones:** `PUT /api/funciones/{funcion_id}/cancelar` requiere una cuenta administradora y un JSON con `motivo`. Cancela entradas activas, registra el importe de devolución de entradas y servicios e intenta notificar por correo a los compradores. Las funciones canceladas permanecen en el historial y no pueden reactivarse.
 - **Validación de compras:** en `POST /api/compras`, cada elemento de `servicios` incluye `id_servicio`, `cantidad` y `precio` conforme a la implementación actual.

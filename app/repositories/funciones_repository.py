@@ -123,20 +123,46 @@ def contar_entradas_de_funcion(funcion_id: int) -> dict:
 
 
 def insertar_funcion(id_pelicula: int, id_sala: int, fecha_hora_proyeccion) -> int:
-    sql = """
-          INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion)
-          VALUES (%s, %s, %s);
-          """
-    return ejecutar_mutacion(sql, (id_pelicula, id_sala, fecha_hora_proyeccion))
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            _bloquear_sala_disponible(cursor, id_sala)
+            cursor.execute(
+                "INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion) VALUES (%s, %s, %s)",
+                (id_pelicula, id_sala, fecha_hora_proyeccion),
+            )
+            nuevo_id = cursor.lastrowid
+        conexion.commit()
+        return nuevo_id
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+def _bloquear_sala_disponible(cursor, id_sala):
+    cursor.execute("SELECT activo FROM salas WHERE id = %s FOR UPDATE", (id_sala,))
+    sala = cursor.fetchone()
+    if not sala or not sala["activo"]:
+        raise ValueError("No se pueden programar funciones en una sala en mantenimiento", 409)
 
 
 def actualizar_funcion(funcion_id: int, id_pelicula: int, id_sala: int, fecha_hora_proyeccion) -> None:
-    sql = """
-          UPDATE funciones
-          SET id_pelicula = %s, id_sala = %s, fecha_hora_proyeccion = %s
-          WHERE id = %s;
-          """
-    ejecutar_mutacion(sql, (id_pelicula, id_sala, fecha_hora_proyeccion, funcion_id))
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            _bloquear_sala_disponible(cursor, id_sala)
+            cursor.execute(
+                "UPDATE funciones SET id_pelicula = %s, id_sala = %s, fecha_hora_proyeccion = %s WHERE id = %s",
+                (id_pelicula, id_sala, fecha_hora_proyeccion, funcion_id),
+            )
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
 
 
 def eliminar_funcion(funcion_id: int) -> None:
@@ -145,10 +171,24 @@ def eliminar_funcion(funcion_id: int) -> None:
 
 
 def cambiar_estado_funcion(funcion_id: int, activo: bool) -> None:
-    ejecutar_mutacion(
-        "UPDATE funciones SET activo = %s WHERE id = %s",
-        (activo, funcion_id),
-    )
+    if not activo:
+        ejecutar_mutacion("UPDATE funciones SET activo = %s WHERE id = %s", (activo, funcion_id))
+        return
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT id_sala FROM funciones WHERE id = %s FOR UPDATE", (funcion_id,))
+            funcion = cursor.fetchone()
+            if not funcion:
+                raise ValueError(f"No existe la función {funcion_id}", 404)
+            _bloquear_sala_disponible(cursor, funcion["id_sala"])
+            cursor.execute("UPDATE funciones SET activo = TRUE WHERE id = %s", (funcion_id,))
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
 
 def destacar_pelicula_de_funcion(funcion_id: int, ahora) -> int | None:
     conexion = obtener_conexion()

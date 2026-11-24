@@ -1,5 +1,7 @@
 """Validaciones de los datos de películas."""
 
+from app.validators.servicios_validator import _validar_imagen
+
 
 def _validar_texto(datos: dict, campo: str, errores: dict, obligatorio: bool = False):
     """Devuelve el texto sin espacios de más, o None si no vino o es inválido."""
@@ -73,6 +75,39 @@ def validar_pelicula(datos: dict) -> tuple:
         return None, errores
 
     return pelicula, {}
+
+
+def validar_cambios_pelicula(datos: dict) -> tuple:
+    if not isinstance(datos, dict) or not datos:
+        return None, {"cuerpo": "Enviá al menos un campo para modificar"}
+    permitidos = {"titulo", "sinopsis", "poster", "duracion", "clasificacion", "genero", "activo"}
+    errores = {}
+    desconocidos = set(datos) - permitidos
+    if desconocidos:
+        errores["campos"] = "Campos no reconocidos: " + ", ".join(sorted(desconocidos))
+    cambios = {}
+    for campo in ("titulo", "sinopsis", "genero"):
+        if campo in datos:
+            cambios[campo] = _validar_texto(datos, campo, errores, campo != "sinopsis")
+    if "duracion" in datos:
+        cambios["duracion"] = _validar_duracion(datos, errores, obligatorio=True)
+    if "clasificacion" in datos:
+        cambios["clasificacion"] = _validar_clasificacion(datos, errores, obligatorio=True)
+    if "activo" in datos:
+        if not isinstance(datos["activo"], bool):
+            errores["activo"] = "Tiene que ser verdadero o falso"
+        else:
+            cambios["activo"] = datos["activo"]
+    if "poster" in datos:
+        poster = datos["poster"]
+        if isinstance(poster, str) and poster.startswith("data:"):
+            imagen_errores = {}
+            cambios["poster"] = _validar_imagen({"imagen_url": poster}, imagen_errores)
+            if imagen_errores:
+                errores["poster"] = imagen_errores["imagen_url"]
+        else:
+            cambios["poster"] = _validar_texto(datos, "poster", errores)
+    return (None, errores) if errores else (cambios, {})
 
 
 def validar_titulo_busqueda(titulo: str) -> tuple:

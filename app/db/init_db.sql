@@ -18,7 +18,7 @@ CREATE TABLE peliculas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(150) NOT NULL,
     sinopsis TEXT,
-    poster VARCHAR(255),
+    poster MEDIUMTEXT,
     duracion INT,
     clasificacion VARCHAR(10),
     genero VARCHAR(50),

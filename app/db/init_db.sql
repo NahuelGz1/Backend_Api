@@ -26,6 +26,13 @@ CREATE TABLE peliculas (
     eliminada BOOLEAN DEFAULT FALSE
 );
 
+-- Una selección compartida para la portada.
+CREATE TABLE pelicula_destacada (
+    id TINYINT PRIMARY KEY,
+    id_pelicula INT NOT NULL,
+    FOREIGN KEY (id_pelicula) REFERENCES peliculas(id)
+);
+
 -- Salas de cada local
 CREATE TABLE salas (
     id INT AUTO_INCREMENT PRIMARY KEY,

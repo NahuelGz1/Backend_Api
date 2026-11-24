@@ -208,7 +208,7 @@ def verificar_butaca_ocupada(id_funcion: int, numero_butaca: str) -> bool:
 
 def obtener_servicios_por_compra(id_compra: int) -> list:
     sql = """
-          SELECT ds.id AS id_detalle, s.nombre, s.categoria, ds.cantidad, ds.usado,
+          SELECT ds.id AS id_detalle, s.id AS id_servicio, s.nombre, s.categoria, ds.cantidad, ds.usado,
                  ds.cantidad_usada, ds.precio_historico AS precio
           FROM detalles_servicios ds
                    JOIN servicios s ON ds.id_servicio = s.id

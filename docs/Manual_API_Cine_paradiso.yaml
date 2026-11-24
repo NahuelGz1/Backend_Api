@@ -453,6 +453,63 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+    patch:
+      tags:
+        - Películas
+      summary: Editar datos de una película
+      operationId: patch__peliculas__pelicula_id
+      description: >
+        Actualiza solo los campos enviados. No permite cambiar la duración si
+        hay funciones futuras o en curso, ni duplicar título y duración.
+        El póster admite una URL de hasta 255 caracteres o una imagen PNG/JPEG
+        en data URI Base64 de hasta 5 MB.
+      parameters:
+        - $ref: '#/components/parameters/pelicula_id'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                titulo:
+                  type: string
+                  maxLength: 150
+                sinopsis:
+                  type: string
+                  nullable: true
+                poster:
+                  type: string
+                  nullable: true
+                duracion:
+                  type: integer
+                  minimum: 1
+                clasificacion:
+                  type: string
+                  enum: [ATP, '+13', '+16', '+18']
+                genero:
+                  type: string
+                  maxLength: 50
+                activo:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
     delete:
       tags:
         - Películas

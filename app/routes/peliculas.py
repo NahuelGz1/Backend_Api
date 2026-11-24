@@ -55,6 +55,20 @@ def eliminar_pelicula(pelicula_id):
         return responder_error_de_validacion(error, 404)
 
 
+@peliculas_bp.route("/<int:pelicula_id>", methods=["PATCH"])
+@requiere_autenticacion
+@requiere_administrador
+def modificar_pelicula(pelicula_id):
+    try:
+        datos = request.get_json(silent=True)
+        return responder_exito(
+            data=peliculas_service.modificar_pelicula(pelicula_id, datos),
+            message="Película actualizada",
+        )
+    except ValueError as error:
+        return responder_error_de_validacion(error)
+
+
 @peliculas_bp.route("/<int:pelicula_id>", methods=["GET"])
 def obtener_detalle_pelicula(pelicula_id: int):
     try:

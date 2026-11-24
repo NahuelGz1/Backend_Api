@@ -195,6 +195,10 @@ def _asegurar_columnas_de_estado():
     )) as conexion:
         with conexion.cursor() as cursor:
             _asegurar_tablas_compra(cursor)
+            cursor.execute("SHOW COLUMNS FROM peliculas LIKE 'poster'")
+            columna_poster = cursor.fetchone()
+            if columna_poster and columna_poster["Type"].lower() != "mediumtext":
+                cursor.execute("ALTER TABLE peliculas MODIFY poster MEDIUMTEXT")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS pelicula_destacada (
                     id TINYINT PRIMARY KEY,

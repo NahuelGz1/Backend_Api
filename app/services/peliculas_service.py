@@ -3,7 +3,7 @@
 from app.repositories import peliculas_repository as repositorio
 from app.repositories import compras_repository
 from app.utils import tmdb
-from app.utils.dates import datetime_a_string
+from app.utils.dates import ahora_argentina, datetime_a_string
 from app.validators import peliculas_validator as validador
 
 
@@ -124,6 +124,14 @@ def crear_pelicula(datos: dict) -> dict:
 
 def listar_peliculas_admin() -> list:
     return [_pelicula_a_dict(fila, []) for fila in repositorio.listar_todas()]
+
+
+def modificar_pelicula(pelicula_id: int, datos: dict) -> dict:
+    cambios, errores = validador.validar_cambios_pelicula(datos)
+    if errores:
+        raise ValueError("Hay datos inválidos", 400, errores)
+    repositorio.actualizar(pelicula_id, cambios, ahora_argentina())
+    return _pelicula_a_dict(repositorio.buscar_por_id(pelicula_id), [])
 
 
 def cambiar_estado_pelicula(pelicula_id: int, activo: bool) -> dict:

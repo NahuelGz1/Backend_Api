@@ -195,6 +195,13 @@ def _asegurar_columnas_de_estado():
     )) as conexion:
         with conexion.cursor() as cursor:
             _asegurar_tablas_compra(cursor)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pelicula_destacada (
+                    id TINYINT PRIMARY KEY,
+                    id_pelicula INT NOT NULL,
+                    FOREIGN KEY (id_pelicula) REFERENCES peliculas(id)
+                )
+            """)
             cursor.execute("SHOW COLUMNS FROM servicios LIKE 'activo'")
             if not cursor.fetchone():
                 cursor.execute("ALTER TABLE servicios ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE")

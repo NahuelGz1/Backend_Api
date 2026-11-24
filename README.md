@@ -106,6 +106,8 @@ Las migraciones que ejecuta `db.py` también pueden necesitar permisos de creaci
 
 La tabla `reseñas` se incluye en el esquema inicial. Para instalaciones existentes, `app/db/migrations/004_create_resenas.sql` la crea si no existe, sin modificar reseñas previas; seleccioná la base de datos al ejecutar el script. La comprobación automática de `db.py` se mantiene por compatibilidad cuando `AUTO_MIGRATE` está habilitado.
 
+La película destacada se guarda en `pelicula_destacada`. En instalaciones existentes se crea al iniciar con `AUTO_MIGRATE=true`, o manualmente con `app/db/migrations/005_create_pelicula_destacada.sql` sobre la base seleccionada. Un administrador puede elegirla desde una función activa y futura; si deja de tener funciones vigentes, la portada muestra otra película de cartelera hasta que vuelva a estar disponible o se elija otra.
+
 ### 5. Iniciar el backend
 
 Con el entorno virtual activado y MySQL disponible:

@@ -24,6 +24,7 @@ def _sql_funciones_vigentes(solo_una_pelicula: bool = False) -> str:
           WHERE funciones.activo = TRUE
             AND salas.activo = TRUE
             AND funciones.eliminada = FALSE
+            AND funciones.cancelada = FALSE
             AND funciones.fecha_hora_proyeccion > %s \
           """.format(cancelada=ESTADO_ENTRADA_CANCELADA)
     if solo_una_pelicula:
@@ -36,13 +37,17 @@ def listar_peliculas_en_cartelera() -> list[dict]:
     """Películas que tienen al menos una función vigente."""
     sql = """
           SELECT peliculas.id, peliculas.titulo, peliculas.sinopsis, peliculas.poster, peliculas.duracion,
-                 peliculas.clasificacion, peliculas.genero, peliculas.activo, peliculas.eliminada
+                 peliculas.clasificacion, peliculas.genero, peliculas.activo, peliculas.eliminada,
+                 (destacada.id_pelicula IS NOT NULL) AS destacada
           FROM peliculas
+          LEFT JOIN pelicula_destacada destacada ON destacada.id = 1 AND destacada.id_pelicula = peliculas.id
           WHERE peliculas.activo = TRUE AND peliculas.eliminada = FALSE AND EXISTS (
               SELECT 1
               FROM funciones
               WHERE funciones.id_pelicula = peliculas.id
                 AND funciones.activo = TRUE
+                AND funciones.eliminada = FALSE
+                AND funciones.cancelada = FALSE
                 AND EXISTS (SELECT 1 FROM salas WHERE salas.id = funciones.id_sala AND salas.activo = TRUE)
                 AND funciones.fecha_hora_proyeccion > %s
           )

@@ -114,6 +114,16 @@ def cambiar_estado_funcion(funcion_id):
     except Exception:
         return responder_error(message="Error interno al cambiar el estado de la función", code=500)
 
+@funciones_bp.route("/<int:funcion_id>/destacar", methods=["PUT"])
+@requiere_autenticacion
+@requiere_administrador
+def destacar_pelicula(funcion_id):
+    try:
+        resultado = funciones_service.destacar_pelicula(funcion_id)
+        return responder_exito(data=resultado, message="Película destacada actualizada")
+    except ValueError as error:
+        return responder_error_de_validacion(error)
+
 
 @funciones_bp.route("/<int:funcion_id>/cancelar", methods=["PUT"])
 @requiere_autenticacion

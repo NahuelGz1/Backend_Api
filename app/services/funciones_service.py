@@ -67,6 +67,7 @@ def _funcion_a_dict(fila: dict) -> dict:
             "duracion": fila["pelicula_duracion"],
             "activa": bool(fila.get("pelicula_activa", True)),
             "eliminada": bool(fila.get("pelicula_eliminada", False)),
+            "destacada": bool(fila.get("pelicula_destacada", False)),
         },
         "sala": {
             "id": fila["sala_id"],
@@ -102,6 +103,12 @@ def obtener_funciones(incluir_inactivas: bool = False) -> list:
     desde = None if incluir_inactivas else _ahora()
     filas = repositorio.listar_funciones(incluir_inactivas, desde)
     return [_funcion_a_dict(f) for f in filas]
+
+def destacar_pelicula(funcion_id: int) -> dict:
+    pelicula_id = repositorio.destacar_pelicula_de_funcion(funcion_id, _ahora())
+    if pelicula_id is None:
+        raise ValueError("La función debe estar activa, ser futura y tener película y sala activas.", 409)
+    return {"id_pelicula": pelicula_id}
 
 
 def obtener_funcion_por_id(funcion_id: int, es_admin: bool = False) -> dict:
@@ -286,6 +293,8 @@ def cambiar_estado_funcion(funcion_id, activo):
                 "No se puede activar la función porque la película está inactiva o fue retirada del catálogo",
                 409,
             )
+        if not funcion.get("sala_activa", True):
+            raise ValueError("No se puede activar la función porque la sala está en mantenimiento", 409)
     repositorio.cambiar_estado_funcion(funcion_id, activo)
     return _funcion_a_dict(_buscar_funcion_existente(funcion_id))
 

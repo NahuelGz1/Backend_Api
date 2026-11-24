@@ -57,6 +57,7 @@ def _pelicula_a_dict(fila: dict, funciones: list) -> dict:
         "genero": fila["genero"],
         "activo": bool(fila.get("activo", True)),
         "eliminada": bool(fila.get("eliminada", False)),
+        "destacada": bool(fila.get("destacada", False)),
         "funciones": funciones,
         "promedio_estrellas": rating.get("promedio", 0),
         "total_votos": rating.get("total", 0),

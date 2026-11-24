@@ -40,6 +40,7 @@ SELECT_FUNCION = """
               p.duracion AS pelicula_duracion,
               p.activo AS pelicula_activa,
               p.eliminada AS pelicula_eliminada,
+              (destacada.id_pelicula IS NOT NULL) AS pelicula_destacada,
               s.id AS sala_id,
               s.nombre AS sala_nombre,
               s.local AS sala_local,
@@ -53,6 +54,7 @@ SELECT_FUNCION = """
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
                    JOIN salas s ON s.id = f.id_sala
+                   LEFT JOIN pelicula_destacada destacada ON destacada.id = 1 AND destacada.id_pelicula = p.id
           """
 
 
@@ -147,6 +149,42 @@ def cambiar_estado_funcion(funcion_id: int, activo: bool) -> None:
         "UPDATE funciones SET activo = %s WHERE id = %s",
         (activo, funcion_id),
     )
+
+def destacar_pelicula_de_funcion(funcion_id: int, ahora) -> int | None:
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id
+                FROM funciones f
+                JOIN peliculas p ON p.id = f.id_pelicula
+                JOIN salas s ON s.id = f.id_sala
+                WHERE f.id = %s AND f.activo = TRUE AND f.eliminada = FALSE
+                  AND f.cancelada = FALSE AND f.fecha_hora_proyeccion > %s
+                  AND p.activo = TRUE AND p.eliminada = FALSE AND s.activo = TRUE
+                FOR UPDATE
+                """,
+                (funcion_id, ahora),
+            )
+            pelicula = cursor.fetchone()
+            if not pelicula:
+                conexion.rollback()
+                return None
+            cursor.execute(
+                """
+                INSERT INTO pelicula_destacada (id, id_pelicula) VALUES (1, %s)
+                ON DUPLICATE KEY UPDATE id_pelicula = VALUES(id_pelicula)
+                """,
+                (pelicula["id"],),
+            )
+            conexion.commit()
+            return pelicula["id"]
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
 
 
 def cancelar_funcion(funcion_id: int, motivo: str) -> list[dict]:

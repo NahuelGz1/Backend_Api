@@ -45,7 +45,7 @@ def guardar_compra_completa(
             id_funcion = next(iter(ids_funciones))
             cursor.execute(
                 """
-                SELECT f.fecha_hora_proyeccion, f.activo, f.eliminada, f.cancelada,
+                SELECT f.fecha_hora_proyeccion, f.activo, f.eliminada, f.cancelada, f.id_sala,
                        p.activo AS pelicula_activa, p.eliminada AS pelicula_eliminada
                 FROM funciones f
                 JOIN peliculas p ON p.id = f.id_pelicula
@@ -57,6 +57,12 @@ def guardar_compra_completa(
             validar_funcion(funcion)
 
             numeros = [entrada["numero_butaca"] for entrada in entradas_data]
+            cursor.execute("SELECT capacidad, activo FROM salas WHERE id = %s FOR UPDATE", (funcion["id_sala"],))
+            sala = cursor.fetchone()
+            if not sala or not sala["activo"]:
+                raise ValueError("La sala no está disponible para nuevas ventas.", 409)
+            if any(numero < 1 or numero > sala["capacidad"] for numero in numeros):
+                raise ValueError("La capacidad de la sala cambió. Volvé a elegir tus butacas.", 409)
             cursor.execute(
                 """
                 SELECT numero_butaca FROM entradas

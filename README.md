@@ -1,6 +1,6 @@
 # Cine Paradiso — API Backend
 
-API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee las operaciones necesarias para autenticación de usuarios, cartelera, programación y cancelación de funciones, disponibilidad de butacas y estacionamiento, servicios adicionales, compras de entradas, validación de códigos QR y métricas administrativas.
+API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee las operaciones necesarias para autenticación y gestión de usuarios, administración de roles, cartelera, programación y cancelación de funciones, mantenimiento de salas, disponibilidad de butacas y estacionamiento, compras de entradas y servicios adicionales, validación de códigos QR, reseñas de películas, notificaciones por correo electrónico y generación de reportes administrativos en PDF.
 
 > Este repositorio contiene el **backend**. La interfaz web se encuentra en [Frontend-Web](https://github.com/NahuelGz1/Frontend-Web).
 
@@ -13,6 +13,7 @@ API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee 
 - **qrcode** y **Pillow**: generación de códigos QR.
 - **python-dotenv**: variables de entorno.
 - **Gunicorn**: servidor WSGI para despliegue (incluido en `requirements.txt`).
+- **ReportLab 4.4.7**: generación de reportes administrativos de ventas en formato PDF.
 
 El `Dockerfile` utiliza **Python 3.12**.
 
@@ -81,6 +82,12 @@ Configurá como mínimo las variables correspondientes a tu entorno:
 | `TMDB_API_KEY` | Clave de acceso a TMDB para las funciones que lo utilizan. |
 | `AUTO_MIGRATE` | Si vale `true`, ejecuta la comprobación/migración del esquema al iniciar. |
 | `AUTO_SEED` | Si vale `true`, intenta crear datos de prueba para validar QR; mantener en `false` normalmente. |
+| `SUPER_ADMIN_EMAIL` | Correo del administrador principal, autorizado para gestionar administradores y empleados. |
+| `MAIL_SERVER` | Servidor SMTP utilizado para enviar correos electrónicos. |
+| `MAIL_PORT` | Puerto del servidor de correo; por defecto `587`. |
+| `MAIL_USERNAME` | Cuenta de correo utilizada para realizar los envíos. |
+| `MAIL_PASSWORD` | Contraseña o credencial de aplicación de la cuenta de correo. |
+| `FRONTEND_URL` | URL base del frontend utilizada para generar enlaces en los correos; por defecto `http://localhost:3000`. |
 
 El archivo de ejemplo también contiene parámetros SMTP y de recuperación de contraseña (`SMTP_*`, `PASSWORD_RESET_URL`) y opciones de TMDB (`TMDB_BASE_URL`, `TMDB_IMAGE_BASE_URL`). Revisalos si vas a usar esas funcionalidades.
 
@@ -145,14 +152,14 @@ Las rutas se registran en `app.py`. Con la configuración predeterminada, los gr
 
 | Prefijo | Funcionalidad |
 | --- | --- |
-| `/api/auth` | Registro, acceso, perfil y administración de usuarios. |
-| `/api/peliculas` | Cartelera, detalle, estrenos y gestión de películas. |
-| `/api/funciones` | Programación, cancelación y estado de funciones; disponibilidad de butacas y estacionamiento. |
-| `/api/funciones/salas` | Gestión de salas. |
+| `/api/auth` | Registro, acceso, perfil, recuperación de contraseña y administración de usuarios y empleados. |
+| `/api/peliculas` | Cartelera, detalle, estrenos, búsqueda externa y edición de películas. |
+| `/api/funciones` | Programación, cancelación y estado de funciones, película destacada y disponibilidad de butacas y estacionamiento. |
+| `/api/funciones/salas` | Configuración, administración y mantenimiento de salas. |
 | `/api/butacas` | Consulta de disponibilidad por función. |
 | `/api/servicios` | Catálogo y administración de servicios adicionales. |
-| `/api/compras` | Compras de entradas y servicios, cancelaciones de compras y validación de QR. |
-| `/api/dashboard` | Métricas administrativas. |
+| `/api/compras` | Compras, cancelaciones, incorporación de servicios a compras existentes, validación de QR y reseñas de películas. |
+| `/api/dashboard` | Métricas administrativas y exportación de reportes en PDF. |
 
 ### Cambios funcionales recientes
 
@@ -160,6 +167,14 @@ Las rutas se registran en `app.py`. Con la configuración predeterminada, los gr
 - **Estacionamiento por función:** `GET /api/funciones/{funcion_id}/estacionamiento` devuelve `limite`, `vendidos` y `disponibles`. El cupo actual es de **20 plazas por función**. Al comprar servicios, el número de estacionamientos no puede superar las entradas de la compra ni el cupo disponible.
 - **Cancelación administrativa de funciones:** `PUT /api/funciones/{funcion_id}/cancelar` requiere una cuenta administradora y un JSON con `motivo`. Cancela entradas activas, registra el importe de devolución de entradas y servicios e intenta notificar por correo a los compradores. Las funciones canceladas permanecen en el historial y no pueden reactivarse.
 - **Validación de compras:** en `POST /api/compras`, cada elemento de `servicios` incluye `id_servicio`, `cantidad` y `precio` conforme a la implementación actual.
+- **Película destacada:** `PUT /api/funciones/{funcion_id}/destacar` permite a un administrador seleccionar una película destacada para la pantalla de inicio a partir de una función vigente.
+- **Edición de películas:** `PATCH /api/peliculas/{pelicula_id}` permite actualizar los datos de una película existente.
+- **Rol de empleado:** el administrador principal puede habilitar, listar y dar de baja empleados mediante los endpoints de `/api/auth/usuarios/empleados`. Los empleados y administradores pueden consultar y validar códigos QR.
+- **Canje de entradas y servicios:** la validación mediante QR distingue entradas, servicios adicionales, estacionamiento y acceso VIP.
+- **Reseñas de películas:** los usuarios pueden registrar o actualizar una puntuación de 1 a 5 estrellas mediante `POST /api/compras/reseña`, siempre que se haya validado su entrada para esa película.
+- **Reseñas por correo electrónico:** al completar el canje de las entradas de una compra, se envía un correo con un enlace para puntuar la película. El endpoint `POST /api/compras/resena/desde-mail` utiliza un token firmado con una vigencia de 30 días.
+- **Servicios asociados a compras existentes:** `POST /api/compras/{compra_id}/servicios` permite agregar servicios adicionales a una compra existente del usuario, manteniendo el mismo código QR y comprobando la vigencia de la función.
+- **Reportes administrativos en PDF:** `GET /api/dashboard/ocupacion/pdf` permite descargar un reporte de ventas en formato PDF. Admite filtros por complejo y período mensual (`AAAA-MM`) y requiere permisos de administrador.
 
 > Estas rutas administrativas y de compra modifican datos reales. Para probarlas, usá una base de desarrollo y consultá los detalles y códigos de respuesta en el manual OpenAPI.
 
@@ -171,22 +186,40 @@ La documentación detallada de parámetros, cuerpos de solicitud, respuestas y a
 
 ```text
 Backend_Api/
-├── app.py                  # Creación de la app Flask y registro de rutas
-├── wsgi.py                 # Entrada WSGI para Gunicorn
-├── db.py                   # Conexión, consultas y migraciones del esquema
-├── requirements.txt       # Dependencias de Python
-├── .env.example           # Plantilla de configuración
-├── Dockerfile             # Imagen del backend
-├── docs/                  # Manual de API OpenAPI 3.0
-├── init.sh                # Inicialización del entorno local
-└── app/
-    ├── routes/            # Endpoints de la API
-    ├── db/
-    │   ├── init_db.sql    # Esquema para instalaciones nuevas
-    │   ├── seed.sql       # Datos de desarrollo
-    │   └── migrations/    # Migraciones incrementales
-    └── utils/             # Utilidades, incluido el formato de respuestas
+├── app/
+│   ├── db/
+│   │   ├── init_db.sql
+│   │   ├── seed.sql
+│   │   └── migrations/
+│   ├── repositories/
+│   ├── routes/
+│   ├── services/
+│   ├── templates/
+│   │   └── emails/
+│   ├── utils/
+│   └── validators/
+├── docs/
+│   └── Manual_API_Cine_paradiso.yaml
+├── scripts/
+├── app.py
+├── db.py
+├── wsgi.py
+├── requirements.txt
+├── .env.example
+├── Dockerfile
+├── init.sh
+└── README.md
 ```
+
+- `app/db/`: esquema de base de datos, datos iniciales y migraciones SQL.
+- `app/repositories/`: consultas y operaciones sobre la base de datos.
+- `app/routes/`: definición de los endpoints de la API.
+- `app/services/`: lógica de negocio del sistema.
+- `app/templates/emails/`: plantillas de correos electrónicos.
+- `app/utils/`: utilidades compartidas.
+- `app/validators/`: validación de los datos recibidos.
+- `docs/`: documentación técnica de la API.
+- `scripts/`: scripts auxiliares para generar y cargar datos de demostración.
 
 ## Ejecución con Docker (opcional)
 

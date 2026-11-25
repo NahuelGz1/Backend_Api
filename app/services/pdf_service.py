@@ -1,5 +1,6 @@
 from io import BytesIO
 from datetime import datetime
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -46,9 +47,21 @@ def _encabezado(texto):
 
 #genera la tabla con el estilo del cine
 def _tabla(datos, anchos):
+    estilos = getSampleStyleSheet()
+    estilo_celda = ParagraphStyle(
+        "CeldaTabla",
+        parent=estilos["Normal"],
+        fontSize=10,
+        leading=12,
+    )
     datos = [
-        [_encabezado(_texto(celda)) if fila == 0 else celda
-         for celda in datos[fila]]
+        [
+            _encabezado(_texto(celda)) if fila == 0 else (
+                Paragraph(escape(_texto(celda)), estilo_celda)
+                if columna == 0 else celda
+            )
+            for columna, celda in enumerate(datos[fila])
+        ]
         for fila in range(len(datos))
     ]
     tabla = Table(datos, colWidths=anchos, repeatRows=1)

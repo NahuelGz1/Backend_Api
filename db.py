@@ -1,10 +1,8 @@
 import os
-import threading
+from contextlib import closing
 import pymysql
 from pymysql.cursors import DictCursor
 
-_schema_lock = threading.Lock()
-_schema_ready = False
 
 
 def _asegurar_tablas_compra(cursor):
@@ -186,172 +184,174 @@ def cargar_fixture_qr_prueba():
 
 
 def _asegurar_columnas_de_estado():
-    global _schema_ready
-    if _schema_ready:
-        return
-    with _schema_lock:
-        if _schema_ready:
-            return
-        conexion = pymysql.connect(
-            host=os.getenv("DB_HOST", "localhost"),
-            user=os.getenv("DB_USER", "root"),
-            password=os.getenv("DB_PASSWORD", ""),
-            database=os.getenv("DB_NAME", "cine_paradiso"),
-            port=int(os.getenv("DB_PORT", 3306)),
-            cursorclass=DictCursor,
-            autocommit=True,
-        )
-        try:
-            with conexion.cursor() as cursor:
-                _asegurar_tablas_compra(cursor)
-                cursor.execute("SHOW COLUMNS FROM servicios LIKE 'activo'")
-                if not cursor.fetchone():
-                    cursor.execute("ALTER TABLE servicios ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE")
-                for tabla in ("peliculas", "funciones"):
+    with closing(pymysql.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", ""),
+        database=os.getenv("DB_NAME", "cine_paradiso"),
+        port=int(os.getenv("DB_PORT", 3306)),
+        cursorclass=DictCursor,
+        autocommit=True,
+    )) as conexion:
+        with conexion.cursor() as cursor:
+            _asegurar_tablas_compra(cursor)
+            cursor.execute("SHOW COLUMNS FROM peliculas LIKE 'poster'")
+            columna_poster = cursor.fetchone()
+            if columna_poster and columna_poster["Type"].lower() != "mediumtext":
+                cursor.execute("ALTER TABLE peliculas MODIFY poster MEDIUMTEXT")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pelicula_destacada (
+                    id TINYINT PRIMARY KEY,
+                    id_pelicula INT NOT NULL,
+                    FOREIGN KEY (id_pelicula) REFERENCES peliculas(id)
+                )
+            """)
+            cursor.execute("SHOW COLUMNS FROM servicios LIKE 'activo'")
+            if not cursor.fetchone():
+                cursor.execute("ALTER TABLE servicios ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE")
+            for tabla in ("peliculas", "funciones"):
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS cantidad
+                    FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = %s
+                      AND column_name = 'activo'
+                    """,
+                    (tabla,),
+                )
+                if cursor.fetchone()["cantidad"] == 0:
                     cursor.execute(
-                        """
-                        SELECT COUNT(*) AS cantidad
-                        FROM information_schema.columns
-                        WHERE table_schema = DATABASE()
-                          AND table_name = %s
-                          AND column_name = 'activo'
-                        """,
-                        (tabla,),
+                        f"ALTER TABLE `{tabla}` "
+                        "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE"
                     )
-                    if cursor.fetchone()["cantidad"] == 0:
-                        cursor.execute(
-                            f"ALTER TABLE `{tabla}` "
-                            "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE"
-                        )
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'funciones'
+                  AND column_name = 'eliminada'
+                """
+            )
+            if cursor.fetchone()["cantidad"] == 0:
+                cursor.execute(
+                    "ALTER TABLE funciones ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'peliculas'
+                  AND column_name = 'eliminada'
+                """
+            )
+            if cursor.fetchone()["cantidad"] == 0:
+                cursor.execute(
+                    "ALTER TABLE peliculas ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            for columna, definicion in (
+                ("cancelada", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("motivo_cancelacion", "VARCHAR(255) NULL"),
+            ):
                 cursor.execute(
                     """
                     SELECT COUNT(*) AS cantidad
                     FROM information_schema.columns
                     WHERE table_schema = DATABASE()
                       AND table_name = 'funciones'
-                      AND column_name = 'eliminada'
-                    """
+                      AND column_name = %s
+                    """,
+                    (columna,),
                 )
                 if cursor.fetchone()["cantidad"] == 0:
-                    cursor.execute(
-                        "ALTER TABLE funciones ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE"
-                    )
+                    cursor.execute(f"ALTER TABLE funciones ADD COLUMN {columna} {definicion}")
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'servicios'
+                AND column_name = 'categoria'
+                """
+            )
+            if cursor.fetchone()["cantidad"] == 0:
+                cursor.execute(
+                    "ALTER TABLE servicios ADD COLUMN categoria VARCHAR(40) NOT NULL DEFAULT 'Snacks'"
+                )
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'servicios'
+                AND column_name = 'imagen_url'
+                """
+            )
+            if cursor.fetchone()["cantidad"] == 0:
+                cursor.execute(
+                    "ALTER TABLE servicios ADD COLUMN imagen_url MEDIUMTEXT"
+                )
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'compras'
+                  AND column_name = 'codigo_qr'
+                """
+            )
+            if cursor.fetchone()["cantidad"] == 0:
+                cursor.execute("ALTER TABLE compras ADD COLUMN codigo_qr VARCHAR(255) NULL")
                 cursor.execute(
                     """
-                    SELECT COUNT(*) AS cantidad
-                    FROM information_schema.columns
-                    WHERE table_schema = DATABASE()
-                      AND table_name = 'peliculas'
-                      AND column_name = 'eliminada'
+                    UPDATE compras c
+                    INNER JOIN (
+                        SELECT id_compra, MIN(codigo_qr) AS codigo_qr
+                        FROM entradas
+                        GROUP BY id_compra
+                    ) e ON e.id_compra = c.id
+                    SET c.codigo_qr = e.codigo_qr
+                    WHERE c.codigo_qr IS NULL
                     """
                 )
-                if cursor.fetchone()["cantidad"] == 0:
-                    cursor.execute(
-                        "ALTER TABLE peliculas ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE"
-                    )
-                for columna, definicion in (
-                    ("cancelada", "BOOLEAN NOT NULL DEFAULT FALSE"),
-                    ("motivo_cancelacion", "VARCHAR(255) NULL"),
-                ):
-                    cursor.execute(
-                        """
-                        SELECT COUNT(*) AS cantidad
-                        FROM information_schema.columns
-                        WHERE table_schema = DATABASE()
-                          AND table_name = 'funciones'
-                          AND column_name = %s
-                        """,
-                        (columna,),
-                    )
-                    if cursor.fetchone()["cantidad"] == 0:
-                        cursor.execute(f"ALTER TABLE funciones ADD COLUMN {columna} {definicion}")
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) AS cantidad FROM information_schema.columns
-                    WHERE table_schema = DATABASE() AND table_name = 'servicios'
-                    AND column_name = 'categoria'
-                    """
-                )
-                if cursor.fetchone()["cantidad"] == 0:
-                    cursor.execute(
-                        "ALTER TABLE servicios ADD COLUMN categoria VARCHAR(40) NOT NULL DEFAULT 'Snacks'"
-                    )
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) AS cantidad FROM information_schema.columns
-                    WHERE table_schema = DATABASE() AND table_name = 'servicios'
-                    AND column_name = 'imagen_url'
-                    """
-                )
-                if cursor.fetchone()["cantidad"] == 0:
-                    cursor.execute(
-                        "ALTER TABLE servicios ADD COLUMN imagen_url MEDIUMTEXT"
-                    )
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) AS cantidad
-                    FROM information_schema.columns
-                    WHERE table_schema = DATABASE()
-                      AND table_name = 'compras'
-                      AND column_name = 'codigo_qr'
-                    """
-                )
-                if cursor.fetchone()["cantidad"] == 0:
-                    cursor.execute("ALTER TABLE compras ADD COLUMN codigo_qr VARCHAR(255) NULL")
-                    cursor.execute(
-                        """
-                        UPDATE compras c
-                        INNER JOIN (
-                            SELECT id_compra, MIN(codigo_qr) AS codigo_qr
-                            FROM entradas
-                            GROUP BY id_compra
-                        ) e ON e.id_compra = c.id
-                        SET c.codigo_qr = e.codigo_qr
-                        WHERE c.codigo_qr IS NULL
-                        """
-                    )
-                    cursor.execute("ALTER TABLE compras MODIFY codigo_qr VARCHAR(255) NOT NULL")
+                cursor.execute("ALTER TABLE compras MODIFY codigo_qr VARCHAR(255) NOT NULL")
 
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'entradas'
+                  AND index_name = 'codigo_qr'
+                """
+            )
+            if cursor.fetchone()["cantidad"]:
+                cursor.execute("ALTER TABLE entradas DROP INDEX codigo_qr")
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'entradas'
+                  AND index_name = 'butaca_unica_por_funcion'
+                """
+            )
+            if cursor.fetchone()["cantidad"]:
                 cursor.execute(
                     """
                     SELECT COUNT(*) AS cantidad
                     FROM information_schema.statistics
                     WHERE table_schema = DATABASE()
                       AND table_name = 'entradas'
-                      AND index_name = 'codigo_qr'
+                      AND index_name = 'idx_entradas_funcion'
                     """
                 )
-                if cursor.fetchone()["cantidad"]:
-                    cursor.execute("ALTER TABLE entradas DROP INDEX codigo_qr")
+                if cursor.fetchone()["cantidad"] == 0:
+                    cursor.execute(
+                        "ALTER TABLE entradas ADD INDEX idx_entradas_funcion (id_funcion)"
+                    )
                 cursor.execute(
-                    """
-                    SELECT COUNT(*) AS cantidad
-                    FROM information_schema.statistics
-                    WHERE table_schema = DATABASE()
-                      AND table_name = 'entradas'
-                      AND index_name = 'butaca_unica_por_funcion'
-                    """
+                    "ALTER TABLE entradas DROP INDEX butaca_unica_por_funcion"
                 )
-                if cursor.fetchone()["cantidad"]:
-                    cursor.execute(
-                        """
-                        SELECT COUNT(*) AS cantidad
-                        FROM information_schema.statistics
-                        WHERE table_schema = DATABASE()
-                          AND table_name = 'entradas'
-                          AND index_name = 'idx_entradas_funcion'
-                        """
-                    )
-                    if cursor.fetchone()["cantidad"] == 0:
-                        cursor.execute(
-                            "ALTER TABLE entradas ADD INDEX idx_entradas_funcion (id_funcion)"
-                        )
-                    cursor.execute(
-                        "ALTER TABLE entradas DROP INDEX butaca_unica_por_funcion"
-                    )
-            _schema_ready = True
-        finally:
-            conexion.close()
+
 
 def obtener_conexion():
     """
@@ -373,7 +373,6 @@ def ejecutar_consulta(sql: str, parametros: tuple = ()) -> list[dict]:
     Ejecuta consultas SELECT y devuelve una lista de diccionarios.
     Lanza la excepción si ocurre un error en la base de datos.
     """
-    _asegurar_columnas_de_estado()
     conexion = obtener_conexion()
     try:
         with conexion.cursor() as cursor:
@@ -387,7 +386,6 @@ def ejecutar_mutacion(sql: str, parametros: tuple = ()) -> int:
     Ejecuta consultas INSERT, UPDATE o DELETE con manejo explícito de transacciones.
     En caso de error hace rollback y vuelve a lanzar la excepción.
     """
-    _asegurar_columnas_de_estado()
     conexion = obtener_conexion()
     try:
         with conexion.cursor() as cursor:

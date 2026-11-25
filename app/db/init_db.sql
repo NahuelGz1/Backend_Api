@@ -18,7 +18,7 @@ CREATE TABLE peliculas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(150) NOT NULL,
     sinopsis TEXT,
-    poster VARCHAR(255),
+    poster MEDIUMTEXT,
     duracion INT,
     clasificacion VARCHAR(10),
     genero VARCHAR(50),
@@ -26,12 +26,20 @@ CREATE TABLE peliculas (
     eliminada BOOLEAN DEFAULT FALSE
 );
 
+-- Una selección compartida para la portada.
+CREATE TABLE pelicula_destacada (
+    id TINYINT PRIMARY KEY,
+    id_pelicula INT NOT NULL,
+    FOREIGN KEY (id_pelicula) REFERENCES peliculas(id)
+);
+
 -- Salas de cada local
 CREATE TABLE salas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL,
     capacidad INT NOT NULL,
-    local VARCHAR(100) NOT NULL
+    local VARCHAR(100) NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Servicios extra (comida, bebida, etc)

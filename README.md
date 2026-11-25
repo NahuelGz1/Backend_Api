@@ -1,6 +1,6 @@
 # Cine Paradiso — API Backend
 
-API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee las operaciones necesarias para autenticación de usuarios, cartelera, programación y cancelación de funciones, disponibilidad de butacas y estacionamiento, servicios adicionales, compras de entradas, validación de códigos QR y métricas administrativas.
+API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee las operaciones necesarias para autenticación y gestión de usuarios, administración de roles, cartelera, programación y cancelación de funciones, mantenimiento de salas, disponibilidad de butacas y estacionamiento, compras de entradas y servicios adicionales, validación de códigos QR, reseñas de películas, notificaciones por correo electrónico y generación de reportes administrativos en PDF.
 
 > Este repositorio contiene el **backend**. La interfaz web se encuentra en [Frontend-Web](https://github.com/NahuelGz1/Frontend-Web).
 
@@ -13,6 +13,7 @@ API REST del sistema **Cine Paradiso**, desarrollada con Python y Flask. Provee 
 - **qrcode** y **Pillow**: generación de códigos QR.
 - **python-dotenv**: variables de entorno.
 - **Gunicorn**: servidor WSGI para despliegue (incluido en `requirements.txt`).
+- **ReportLab 4.4.7**: generación de reportes administrativos de ventas en formato PDF.
 
 El `Dockerfile` utiliza **Python 3.12**.
 
@@ -81,6 +82,12 @@ Configurá como mínimo las variables correspondientes a tu entorno:
 | `TMDB_API_KEY` | Clave de acceso a TMDB para las funciones que lo utilizan. |
 | `AUTO_MIGRATE` | Si vale `true`, ejecuta la comprobación/migración del esquema al iniciar. |
 | `AUTO_SEED` | Si vale `true`, intenta crear datos de prueba para validar QR; mantener en `false` normalmente. |
+| `SUPER_ADMIN_EMAIL` | Correo del administrador principal, autorizado para gestionar administradores y empleados. |
+| `MAIL_SERVER` | Servidor SMTP utilizado para enviar correos electrónicos. |
+| `MAIL_PORT` | Puerto del servidor de correo; por defecto `587`. |
+| `MAIL_USERNAME` | Cuenta de correo utilizada para realizar los envíos. |
+| `MAIL_PASSWORD` | Contraseña o credencial de aplicación de la cuenta de correo. |
+| `FRONTEND_URL` | URL base del frontend utilizada para generar enlaces en los correos; por defecto `http://localhost:3000`. |
 
 El archivo de ejemplo también contiene parámetros SMTP y de recuperación de contraseña (`SMTP_*`, `PASSWORD_RESET_URL`) y opciones de TMDB (`TMDB_BASE_URL`, `TMDB_IMAGE_BASE_URL`). Revisalos si vas a usar esas funcionalidades.
 
@@ -97,14 +104,21 @@ sudo mysql < app/db/init_db.sql
 El repositorio también incluye `app/db/seed.sql` con datos iniciales y registros de prueba. Su ejecución es **opcional** y debe reservarse a una base nueva de desarrollo:
 
 ```bash
+sudo mysql cine_paradiso < app/db/catalogo_servicios.sql
 sudo mysql < app/db/seed.sql
 ```
+
+El catálogo de servicios se carga antes del seed, que lo necesita para la compra de prueba. Por defecto, `catalogo_servicios.sql` inserta únicamente nombres que todavía no existan y conserva los servicios existentes. Para restaurar explícitamente el catálogo de desarrollo, las instrucciones de Docker indican cómo activar `@restablecer_catalogo`: esta operación sobrescribe los doce servicios iniciales, elimina sus imágenes personalizadas y desactiva los demás sin borrar su historial. La comparación usa el nombre y la intercalación de la base; un servicio renombrado quedará inactivo y se creará uno nuevo. Los cambios posteriores no se sincronizan automáticamente.
 
 **Importante:** no vuelvas a ejecutar estos archivos sobre una base con datos. El script de tablas no es una migración general para instalaciones existentes y el de datos puede insertar registros duplicados. Antes de cualquier cambio de esquema, realizá un respaldo y revisá las migraciones disponibles en `app/db/migrations/` (incluida `003_add_cancelacion_funciones.sql`, que agrega el estado y el motivo de cancelación).
 
 Las migraciones que ejecuta `db.py` también pueden necesitar permisos de creación o alteración de tablas. Utilizá una cuenta MySQL con permisos adecuados para el entorno, evitando credenciales de administrador global en producción.
 
 La tabla `reseñas` se incluye en el esquema inicial. Para instalaciones existentes, `app/db/migrations/004_create_resenas.sql` la crea si no existe, sin modificar reseñas previas; seleccioná la base de datos al ejecutar el script. La comprobación automática de `db.py` se mantiene por compatibilidad cuando `AUTO_MIGRATE` está habilitado.
+
+La película destacada se guarda en `pelicula_destacada`. En instalaciones existentes se crea al iniciar con `AUTO_MIGRATE=true`, o manualmente con `app/db/migrations/005_create_pelicula_destacada.sql` sobre la base seleccionada. Un administrador puede elegirla desde una función activa y futura; si deja de tener funciones vigentes, la portada muestra otra película de cartelera hasta que vuelva a estar disponible o se elija otra.
+
+La edición de películas permite actualizar sus datos y cargar un afiche JPG o PNG de hasta 5 MB. No se puede cambiar la duración mientras tenga funciones futuras o en curso. El campo `poster` se amplía a `MEDIUMTEXT` automáticamente con `AUTO_MIGRATE=true`; si las migraciones automáticas están desactivadas, aplicá `app/db/migrations/006_ampliar_poster_pelicula.sql` sobre la base correspondiente.
 
 ### 5. Iniciar el backend
 
@@ -138,20 +152,29 @@ Las rutas se registran en `app.py`. Con la configuración predeterminada, los gr
 
 | Prefijo | Funcionalidad |
 | --- | --- |
-| `/api/auth` | Registro, acceso, perfil y administración de usuarios. |
-| `/api/peliculas` | Cartelera, detalle, estrenos y gestión de películas. |
-| `/api/funciones` | Programación, cancelación y estado de funciones; disponibilidad de butacas y estacionamiento. |
-| `/api/funciones/salas` | Gestión de salas. |
+| `/api/auth` | Registro, acceso, perfil, recuperación de contraseña y administración de usuarios y empleados. |
+| `/api/peliculas` | Cartelera, detalle, estrenos, búsqueda externa y edición de películas. |
+| `/api/funciones` | Programación, cancelación y estado de funciones, película destacada y disponibilidad de butacas y estacionamiento. |
+| `/api/funciones/salas` | Configuración, administración y mantenimiento de salas. |
 | `/api/butacas` | Consulta de disponibilidad por función. |
 | `/api/servicios` | Catálogo y administración de servicios adicionales. |
-| `/api/compras` | Compras de entradas y servicios, cancelaciones de compras y validación de QR. |
-| `/api/dashboard` | Métricas administrativas. |
+| `/api/compras` | Compras, cancelaciones, incorporación de servicios a compras existentes, validación de QR y reseñas de películas. |
+| `/api/dashboard` | Métricas administrativas y exportación de reportes en PDF. |
 
 ### Cambios funcionales recientes
 
+- **Configuración de salas:** no se puede modificar el nombre, complejo o capacidad de una sala con entradas no canceladas para funciones futuras. Para pasarla a mantenimiento deben terminar sus funciones activas en curso (incluidos 15 minutos de limpieza) y desactivar o cancelar las futuras. Las compras vuelven a comprobar la capacidad al confirmarse.
 - **Estacionamiento por función:** `GET /api/funciones/{funcion_id}/estacionamiento` devuelve `limite`, `vendidos` y `disponibles`. El cupo actual es de **20 plazas por función**. Al comprar servicios, el número de estacionamientos no puede superar las entradas de la compra ni el cupo disponible.
 - **Cancelación administrativa de funciones:** `PUT /api/funciones/{funcion_id}/cancelar` requiere una cuenta administradora y un JSON con `motivo`. Cancela entradas activas, registra el importe de devolución de entradas y servicios e intenta notificar por correo a los compradores. Las funciones canceladas permanecen en el historial y no pueden reactivarse.
 - **Validación de compras:** en `POST /api/compras`, cada elemento de `servicios` incluye `id_servicio`, `cantidad` y `precio` conforme a la implementación actual.
+- **Película destacada:** `PUT /api/funciones/{funcion_id}/destacar` permite a un administrador seleccionar una película destacada para la pantalla de inicio a partir de una función vigente.
+- **Edición de películas:** `PATCH /api/peliculas/{pelicula_id}` permite actualizar los datos de una película existente.
+- **Rol de empleado:** el administrador principal puede habilitar, listar y dar de baja empleados mediante los endpoints de `/api/auth/usuarios/empleados`. Los empleados y administradores pueden consultar y validar códigos QR.
+- **Canje de entradas y servicios:** la validación mediante QR distingue entradas, servicios adicionales, estacionamiento y acceso VIP.
+- **Reseñas de películas:** los usuarios pueden registrar o actualizar una puntuación de 1 a 5 estrellas mediante `POST /api/compras/reseña`, siempre que se haya validado su entrada para esa película.
+- **Reseñas por correo electrónico:** al completar el canje de las entradas de una compra, se envía un correo con un enlace para puntuar la película. El endpoint `POST /api/compras/resena/desde-mail` utiliza un token firmado con una vigencia de 30 días.
+- **Servicios asociados a compras existentes:** `POST /api/compras/{compra_id}/servicios` permite agregar servicios adicionales a una compra existente del usuario, manteniendo el mismo código QR y comprobando la vigencia de la función.
+- **Reportes administrativos en PDF:** `GET /api/dashboard/ocupacion/pdf` permite descargar un reporte de ventas en formato PDF. Admite filtros por complejo y período mensual (`AAAA-MM`) y requiere permisos de administrador.
 
 > Estas rutas administrativas y de compra modifican datos reales. Para probarlas, usá una base de desarrollo y consultá los detalles y códigos de respuesta en el manual OpenAPI.
 
@@ -163,22 +186,40 @@ La documentación detallada de parámetros, cuerpos de solicitud, respuestas y a
 
 ```text
 Backend_Api/
-├── app.py                  # Creación de la app Flask y registro de rutas
-├── wsgi.py                 # Entrada WSGI para Gunicorn
-├── db.py                   # Conexión, consultas y migraciones del esquema
-├── requirements.txt       # Dependencias de Python
-├── .env.example           # Plantilla de configuración
-├── Dockerfile             # Imagen del backend
-├── docs/                  # Manual de API OpenAPI 3.0
-├── init.sh                # Inicialización del entorno local
-└── app/
-    ├── routes/            # Endpoints de la API
-    ├── db/
-    │   ├── init_db.sql    # Esquema para instalaciones nuevas
-    │   ├── seed.sql       # Datos de desarrollo
-    │   └── migrations/    # Migraciones incrementales
-    └── utils/             # Utilidades, incluido el formato de respuestas
+├── app/
+│   ├── db/
+│   │   ├── init_db.sql
+│   │   ├── seed.sql
+│   │   └── migrations/
+│   ├── repositories/
+│   ├── routes/
+│   ├── services/
+│   ├── templates/
+│   │   └── emails/
+│   ├── utils/
+│   └── validators/
+├── docs/
+│   └── Manual_API_Cine_paradiso.yaml
+├── scripts/
+├── app.py
+├── db.py
+├── wsgi.py
+├── requirements.txt
+├── .env.example
+├── Dockerfile
+├── init.sh
+└── README.md
 ```
+
+- `app/db/`: esquema de base de datos, datos iniciales y migraciones SQL.
+- `app/repositories/`: consultas y operaciones sobre la base de datos.
+- `app/routes/`: definición de los endpoints de la API.
+- `app/services/`: lógica de negocio del sistema.
+- `app/templates/emails/`: plantillas de correos electrónicos.
+- `app/utils/`: utilidades compartidas.
+- `app/validators/`: validación de los datos recibidos.
+- `docs/`: documentación técnica de la API.
+- `scripts/`: scripts auxiliares para generar y cargar datos de demostración.
 
 ## Ejecución con Docker (opcional)
 

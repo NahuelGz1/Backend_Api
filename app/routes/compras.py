@@ -1,7 +1,9 @@
 from flask import Blueprint, request, current_app
 from app.services import qr_service, reserva_service
-from app.utils.decorators import requiere_autenticacion, requiere_administrador
+from app.utils.decorators import requiere_autenticacion, requiere_administrador, requiere_personal
 from app.utils.response import responder_exito, responder_error, responder_error_de_validacion
+from itsdangerous import BadData, URLSafeTimedSerializer
+from app.utils.security import clave_secreta
 
 compras_bp = Blueprint("compras", __name__)
 
@@ -49,7 +51,7 @@ def endpoint_cancelar_compra(compra_id: int):
 
 @compras_bp.route("/qr/<path:codigo_qr>", methods=["GET"])
 @requiere_autenticacion
-@requiere_administrador
+@requiere_personal
 def consultar_qr_compra(codigo_qr: str):
     try:
         resultado = qr_service.consultar_compra(codigo_qr)
@@ -64,7 +66,7 @@ def consultar_qr_compra(codigo_qr: str):
 
 @compras_bp.route("/validar-qr", methods=["POST"])
 @requiere_autenticacion
-@requiere_administrador
+@requiere_personal
 def validar_qr_compra():
     try:
         datos = request.get_json(silent=True) or {}
@@ -105,3 +107,53 @@ def crear_resena():
     except Exception as error:
         current_app.logger.error("No se pudo añadir la reseña (%s)", type(error).__name__)
         return responder_error(message="Error interno al añadir la reseña", code=500)  
+
+@compras_bp.route("/<int:compra_id>/servicios", methods=["POST"])
+@requiere_autenticacion
+def agregar_servicios_a_compra(compra_id: int):
+    try:
+        datos = request.get_json(silent=True) or {}
+        id_usuario = request.usuario_actual.get("sub")
+        resultado = reserva_service.agregar_servicios_compra_existente(compra_id, datos, id_usuario)
+        return responder_exito(data=resultado, message="Servicios agregados exitosamente", status_code=201)
+    except ValueError as e:
+        return responder_error_de_validacion(e)
+    except PermissionError as e:
+        return responder_error(message=str(e), code=403)
+    except Exception as error:
+        current_app.logger.error("No se pudieron agregar servicios a la compra (%s)", type(error).__name__)
+        return responder_error(message="Error interno al agregar servicios", code=500)
+
+
+@compras_bp.route("/resena/desde-mail", methods=["POST"])
+def crear_resena_desde_mail():
+    try:
+        datos = request.get_json(silent=True) or {}
+        token = datos.get("token")
+        puntuacion = datos.get("puntuacion")
+
+        if token is None:
+            raise ValueError("El token es obligatorio")
+        if puntuacion is None:
+            raise ValueError("La puntuación es obligatoria")
+
+        try:
+            payload = URLSafeTimedSerializer(clave_secreta(), salt="resena-pelicula").loads(
+                token, max_age=60 * 60 * 24 * 30
+            )
+        except BadData as error:
+            raise ValueError("El enlace es inválido o venció") from error
+
+        id_usuario = payload.get("id_usuario")
+        id_pelicula = payload.get("id_pelicula")
+
+        resultado = reserva_service.registrar_puntuacion(id_usuario, id_pelicula, int(puntuacion))
+        return responder_exito(data=resultado, message="Reseña añadida exitosamente")
+    except ValueError as e:
+        return responder_error_de_validacion(e)
+    except PermissionError as e:
+        return responder_error(message=str(e), code=403)
+    except Exception as error:
+        current_app.logger.error("No se pudo añadir la reseña (%s)", type(error).__name__)
+        return responder_error(message="Error interno al añadir la reseña", code=500)
+      

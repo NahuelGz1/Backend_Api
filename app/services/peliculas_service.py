@@ -3,7 +3,7 @@
 from app.repositories import peliculas_repository as repositorio
 from app.repositories import compras_repository
 from app.utils import tmdb
-from app.utils.dates import datetime_a_string
+from app.utils.dates import ahora_argentina, datetime_a_string
 from app.validators import peliculas_validator as validador
 
 
@@ -14,12 +14,10 @@ def _completar_datos_faltantes_con_tmdb(pelicula: dict):
 
     titulo = pelicula.get("titulo")
     try:
-        resultados = tmdb.buscar_peliculas(titulo)
-
-        if resultados:
-            mejor = resultados[0]
-            nueva_sinopsis = mejor.get("sinopsis")
-            nuevo_poster = mejor.get("poster")
+        datos = tmdb.obtener_datos_pelicula(titulo)
+        if datos:
+            nuevo_poster = datos.get("poster")
+            nueva_sinopsis = datos.get("sinopsis")
 
             if nuevo_poster and not pelicula.get("poster"):
                 pelicula["poster"] = nuevo_poster
@@ -59,6 +57,7 @@ def _pelicula_a_dict(fila: dict, funciones: list) -> dict:
         "genero": fila["genero"],
         "activo": bool(fila.get("activo", True)),
         "eliminada": bool(fila.get("eliminada", False)),
+        "destacada": bool(fila.get("destacada", False)),
         "funciones": funciones,
         "promedio_estrellas": rating.get("promedio", 0),
         "total_votos": rating.get("total", 0),
@@ -127,6 +126,14 @@ def listar_peliculas_admin() -> list:
     return [_pelicula_a_dict(fila, []) for fila in repositorio.listar_todas()]
 
 
+def modificar_pelicula(pelicula_id: int, datos: dict) -> dict:
+    cambios, errores = validador.validar_cambios_pelicula(datos)
+    if errores:
+        raise ValueError("Hay datos inválidos", 400, errores)
+    repositorio.actualizar(pelicula_id, cambios, ahora_argentina())
+    return _pelicula_a_dict(repositorio.buscar_por_id(pelicula_id), [])
+
+
 def cambiar_estado_pelicula(pelicula_id: int, activo: bool) -> dict:
     pelicula = repositorio.buscar_por_id(pelicula_id)
     if pelicula is None:
@@ -160,19 +167,20 @@ def buscar_peliculas_en_tmdb(titulo: str) -> list:
 
 
 def obtener_proximos_estrenos() -> list:
-    """Devuelve la lista de próximos estrenos recuperados desde la API de TMDB."""
-    try:
-        estrenos_crudos = tmdb.obtener_proximos_estrenos()
-        estrenos_formateados = []
-        for item in estrenos_crudos:
-            estrenos_formateados.append({
-                "id": item.get("tmdb_id"),
-                "titulo": item.get("titulo"),
-                "sinopsis": item.get("sinopsis"),
-                "poster": item.get("poster"),
-                "fecha_estreno": item.get("fecha_estreno"),
-                "genero": item.get("genero")
-            })
-        return estrenos_formateados
-    except Exception:
-        return []
+    """Devuelve las películas activas que aún no tienen funciones asignadas."""
+    peliculas = repositorio.listar_estrenos()
+    estrenos_formateados = []
+    for pelicula in peliculas:
+        _completar_datos_faltantes_con_tmdb(pelicula)
+        estrenos_formateados.append({
+            "id": pelicula.get("id"),
+            "titulo": pelicula.get("titulo"),
+            "sinopsis": pelicula.get("sinopsis"),
+            "poster": pelicula.get("poster"),
+            "fecha_estreno": "",
+            "disponible_desde": "Próximamente",
+            "genero": pelicula.get("genero"),
+            "duracion": pelicula.get("duracion"),
+            "clasificacion": pelicula.get("clasificacion"),
+        })
+    return estrenos_formateados

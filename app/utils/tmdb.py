@@ -70,32 +70,29 @@ def _formatear_resultado_tmdb(resultado, nombres_de_generos, duracion=None):
         "genero": primer_genero,
         "duracion": duracion,
     }
-def obtener_proximos_estrenos():
-    """Obtiene películas populares con fecha de estreno anterior a 2026 desde TMDB."""
+
+
+def obtener_datos_pelicula(titulo):
+    """Obtiene poster y sinopsis del primer resultado en TMDB con 1 sola llamada HTTP."""
     api_key = os.getenv("TMDB_API_KEY")
     if not api_key:
-        raise ValueError("Falta configurar la variable de entorno TMDB_API_KEY", 500)
+        return None
 
-    nombres_de_generos = _obtener_nombres_de_generos(api_key)
-    datos = _pedir_a_tmdb(
-        "/discover/movie",
-        api_key,
-        {
-            "sort_by": "popularity.desc",
-            "primary_release_date.lte": "2025-12-31",
-            "vote_count.gte": "100",
-        },
-    )
-    resultados_crudos = datos.get("results", [])
+    try:
+        datos = _pedir_a_tmdb("/search/movie", api_key, {"query": titulo})
+        resultados = datos.get("results", [])
+        if not resultados:
+            return None
 
-    resultados_formateados = []
-    for resultado in resultados_crudos:
-        # Asegurar que solo aparezcan películas con fecha de estreno anterior a 2026
-        fecha_estreno = resultado.get("release_date")
-        if not fecha_estreno or fecha_estreno < "2026-01-01":
-            resultados_formateados.append(_formatear_resultado_tmdb(resultado, nombres_de_generos))
-
-    return resultados_formateados[:12]
+        primer = resultados[0]
+        ruta_poster = primer.get("poster_path")
+        poster_url = f"{TMDB_IMAGE_BASE_URL}{ruta_poster}" if ruta_poster else None
+        return {
+            "sinopsis": primer.get("overview") or None,
+            "poster": poster_url,
+        }
+    except Exception:
+        return None
 
 
 def buscar_peliculas(titulo):

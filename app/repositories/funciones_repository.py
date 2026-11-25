@@ -13,7 +13,7 @@ def listar_locales() -> list[dict]:
 
 def listar_salas(local: str | None = None) -> list[dict]:
     sql = """
-          SELECT id, nombre, capacidad, local
+          SELECT id, nombre, capacidad, local, activo
           FROM salas
           """
     parametros = []
@@ -40,10 +40,12 @@ SELECT_FUNCION = """
               p.duracion AS pelicula_duracion,
               p.activo AS pelicula_activa,
               p.eliminada AS pelicula_eliminada,
+              (destacada.id_pelicula IS NOT NULL) AS pelicula_destacada,
               s.id AS sala_id,
               s.nombre AS sala_nombre,
               s.local AS sala_local,
               s.capacidad AS sala_capacidad,
+              s.activo AS sala_activa,
               (
                   SELECT COUNT(*)
                   FROM entradas e
@@ -52,6 +54,7 @@ SELECT_FUNCION = """
           FROM funciones f
                    JOIN peliculas p ON p.id = f.id_pelicula
                    JOIN salas s ON s.id = f.id_sala
+                   LEFT JOIN pelicula_destacada destacada ON destacada.id = 1 AND destacada.id_pelicula = p.id
           """
 
 
@@ -59,7 +62,7 @@ def listar_funciones(incluir_inactivas: bool = False, desde=None) -> list[dict]:
     sql = SELECT_FUNCION + " WHERE f.eliminada = FALSE"
     parametros = [ESTADO_ENTRADA_CANCELADA]
     if not incluir_inactivas:
-        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE"
+        sql += " AND f.activo = TRUE AND p.activo = TRUE AND p.eliminada = FALSE AND s.activo = TRUE"
     if desde is not None:
         sql += " AND f.fecha_hora_proyeccion > %s"
         parametros.append(desde)
@@ -75,7 +78,7 @@ def buscar_funcion_por_id(funcion_id: int) -> dict | None:
 
 def buscar_sala_por_id(sala_id: int) -> dict | None:
     sql = """
-          SELECT id, nombre, capacidad, local
+          SELECT id, nombre, capacidad, local, activo
           FROM salas
           WHERE id = %s;
           """
@@ -120,20 +123,46 @@ def contar_entradas_de_funcion(funcion_id: int) -> dict:
 
 
 def insertar_funcion(id_pelicula: int, id_sala: int, fecha_hora_proyeccion) -> int:
-    sql = """
-          INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion)
-          VALUES (%s, %s, %s);
-          """
-    return ejecutar_mutacion(sql, (id_pelicula, id_sala, fecha_hora_proyeccion))
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            _bloquear_sala_disponible(cursor, id_sala)
+            cursor.execute(
+                "INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion) VALUES (%s, %s, %s)",
+                (id_pelicula, id_sala, fecha_hora_proyeccion),
+            )
+            nuevo_id = cursor.lastrowid
+        conexion.commit()
+        return nuevo_id
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+def _bloquear_sala_disponible(cursor, id_sala):
+    cursor.execute("SELECT activo FROM salas WHERE id = %s FOR UPDATE", (id_sala,))
+    sala = cursor.fetchone()
+    if not sala or not sala["activo"]:
+        raise ValueError("No se pueden programar funciones en una sala en mantenimiento", 409)
 
 
 def actualizar_funcion(funcion_id: int, id_pelicula: int, id_sala: int, fecha_hora_proyeccion) -> None:
-    sql = """
-          UPDATE funciones
-          SET id_pelicula = %s, id_sala = %s, fecha_hora_proyeccion = %s
-          WHERE id = %s;
-          """
-    ejecutar_mutacion(sql, (id_pelicula, id_sala, fecha_hora_proyeccion, funcion_id))
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            _bloquear_sala_disponible(cursor, id_sala)
+            cursor.execute(
+                "UPDATE funciones SET id_pelicula = %s, id_sala = %s, fecha_hora_proyeccion = %s WHERE id = %s",
+                (id_pelicula, id_sala, fecha_hora_proyeccion, funcion_id),
+            )
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
 
 
 def eliminar_funcion(funcion_id: int) -> None:
@@ -142,10 +171,60 @@ def eliminar_funcion(funcion_id: int) -> None:
 
 
 def cambiar_estado_funcion(funcion_id: int, activo: bool) -> None:
-    ejecutar_mutacion(
-        "UPDATE funciones SET activo = %s WHERE id = %s",
-        (activo, funcion_id),
-    )
+    if not activo:
+        ejecutar_mutacion("UPDATE funciones SET activo = %s WHERE id = %s", (activo, funcion_id))
+        return
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT id_sala FROM funciones WHERE id = %s FOR UPDATE", (funcion_id,))
+            funcion = cursor.fetchone()
+            if not funcion:
+                raise ValueError(f"No existe la función {funcion_id}", 404)
+            _bloquear_sala_disponible(cursor, funcion["id_sala"])
+            cursor.execute("UPDATE funciones SET activo = TRUE WHERE id = %s", (funcion_id,))
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+def destacar_pelicula_de_funcion(funcion_id: int, ahora) -> int | None:
+    conexion = obtener_conexion()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.id
+                FROM funciones f
+                JOIN peliculas p ON p.id = f.id_pelicula
+                JOIN salas s ON s.id = f.id_sala
+                WHERE f.id = %s AND f.activo = TRUE AND f.eliminada = FALSE
+                  AND f.cancelada = FALSE AND f.fecha_hora_proyeccion > %s
+                  AND p.activo = TRUE AND p.eliminada = FALSE AND s.activo = TRUE
+                FOR UPDATE
+                """,
+                (funcion_id, ahora),
+            )
+            pelicula = cursor.fetchone()
+            if not pelicula:
+                conexion.rollback()
+                return None
+            cursor.execute(
+                """
+                INSERT INTO pelicula_destacada (id, id_pelicula) VALUES (1, %s)
+                ON DUPLICATE KEY UPDATE id_pelicula = VALUES(id_pelicula)
+                """,
+                (pelicula["id"],),
+            )
+            conexion.commit()
+            return pelicula["id"]
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
 
 
 def cancelar_funcion(funcion_id: int, motivo: str) -> list[dict]:

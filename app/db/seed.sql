@@ -8,7 +8,7 @@ INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES
      'scrypt:32768:8:1$LXnpLoSpUYChMpGa$b2c0abc74dc241baa84592f0e9495ce6c7313cea8e1f970d41fed2179139fb2fb65d2a5b2425371f7f83f5597c6dd4d3fce3901cfabe9bd433d35476d023f821', 'administrador')
     ON DUPLICATE KEY UPDATE rol = 'administrador';
 
--- 10 películas (los ids van del 1 al 10)
+-- Películas (las primeras 10 tienen funciones en cartelera, las últimas 2 son próximos estrenos sin funciones)
 INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero) VALUES
     ('Volver al Futuro', 'Un chico viaja al pasado en una máquina del tiempo.', 116, 'ATP', 'Ciencia ficción'),
     ('El Rey León', 'Un león joven debe recuperar su reino.', 88, 'ATP', 'Animación'),
@@ -19,7 +19,9 @@ INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero) VALUES
     ('Toy Story', 'Los juguetes de un nene cobran vida cuando nadie los ve.', 81, 'ATP', 'Animación'),
     ('Gladiador', 'Un general romano busca venganza como gladiador.', 155, '+16', 'Acción'),
     ('Shrek 2', 'Shrek conoce a los padres de Fiona.', 93, 'ATP', 'Animación'),
-    ('Piratas del Caribe', 'Un pirata y un herrero rescatan a una joven del barco Perla Negra.', 143, '+13', 'Aventura');
+    ('Piratas del Caribe', 'Un pirata y un herrero rescatan a una joven del barco Perla Negra.', 143, '+13', 'Aventura'),
+    ('Dune: Parte Dos', 'Paul Atreides se une a Chani y a los Fremen mientras busca venganza.', 166, '+13', 'Ciencia ficción'),
+    ('Deadpool & Wolverine', 'Wolverine se recupera de sus heridas cuando se cruza con Deadpool.', 128, '+16', 'Acción');
 
 -- 6 salas en 3 locales (los ids van del 1 al 6)
 INSERT INTO salas (nombre, capacidad, local) VALUES
@@ -30,14 +32,7 @@ INSERT INTO salas (nombre, capacidad, local) VALUES
     ('Sala 1', 70, 'Paradiso Sur'),
     ('Sala 2', 40, 'Paradiso Sur');
 
--- 6 servicios
-INSERT INTO servicios (nombre, descripcion, precio, categoria) VALUES
-    ('Balde de pochoclos', '1 balde de pochoclos', 13500.00, 'Pochoclos'),
-    ('Combo Mega Recargado', '1 balde de pochoclos, 2 gaseosas grandes, 1 golosina y recarga de balde y vasos', 39700.00, 'Pochoclos'),
-    ('Combo Mega Individual', '1 balde de pochoclos y 1 gaseosa grande', 23400.00, 'Pochoclos'),
-    ('Agua', '1 agua, valor por unidad', 5200.00, 'Bebidas'),
-    ('Estacionamiento', 'Cochera durante la función', 6000.00, 'Mejoras de experiencia'),
-    ('Acceso VIP', 'Butacas reclinables y atención en la sala', 15000.00, 'Mejoras de experiencia');
+-- Los servicios se cargan previamente desde catalogo_servicios.sql.
 
 -- 14 funciones
 INSERT INTO funciones (id_pelicula, id_sala, fecha_hora_proyeccion) VALUES

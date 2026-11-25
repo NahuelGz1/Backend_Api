@@ -11,6 +11,7 @@ from app.repositories.auth_repository import (
     actualizar_usuario,
     actualizar_rol_usuario,
     listar_administradores,
+    listar_empleados,
 )
 import hmac
 from flask import current_app
@@ -69,7 +70,7 @@ def autenticar_usuario(email: str, password: str) -> dict:
         raise ValueError("Credenciales inválidas", 401)
 
     rol_usuario = usuario["rol"]
-    if rol_usuario not in ("cliente", "administrador"):
+    if rol_usuario not in ("cliente", "administrador", "empleado"):
         raise ValueError("El rol de la cuenta no tiene acceso al sistema", 403)
     token = generar_token_acceso(usuario["id"], rol_usuario, usuario["password_hash"])
 
@@ -276,8 +277,23 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
         if clave in compras_proximas:
             if clave not in proximas_por_compra:
                 servicios_compra = servicios_por_compra.get(fila.get("id_compra"), [])
+                servicios_agrupados = {}
+                for servicio in servicios_compra:
+                    nombre_serv = servicio.get("servicio_nombre", "")
+                    precio_serv = float(servicio.get("precio") or 0)
+                    cant_serv = int(servicio.get("cantidad") or 1)
+                    clave_serv = (servicio.get("id_servicio"), nombre_serv, precio_serv)
+                    if clave_serv not in servicios_agrupados:
+                        servicios_agrupados[clave_serv] = {
+                            "nombre": nombre_serv,
+                            "cantidad": 0,
+                            "precio": precio_serv,
+                        }
+                    servicios_agrupados[clave_serv]["cantidad"] += cant_serv
+
                 item = {
                     "id_compra": fila.get("id_compra"),
+                    "id_funcion": fila.get("id_funcion"),
                     "id_pelicula": fila.get("id_pelicula"),
                     "pelicula": {
                         "titulo": fila.get("pelicula_titulo", ""),
@@ -287,14 +303,7 @@ def consultar_perfil_completo_usuario(id_usuario: int) -> dict:
                     "horario": horario_str,
                     "complejo": fila.get("cine_local", ""),
                     "sala": fila.get("sala_nombre", ""),
-                    "servicios": [
-                        {
-                            "nombre": servicio.get("servicio_nombre", ""),
-                            "cantidad": int(servicio.get("cantidad") or 1),
-                            "precio": float(servicio.get("precio") or 0),
-                        }
-                        for servicio in servicios_compra
-                    ],
+                    "servicios": list(servicios_agrupados.values()),
                     "codigo_operacion": f"CP-{fila.get('id_compra')}" if fila.get("id_compra") else fila.get("id_entrada", "")
                 }
                 item["numeros_butacas"] = []
@@ -508,3 +517,39 @@ def actualizar_perfil_usuario(id_usuario: int, datos: dict) -> dict:
 
     actualizar_usuario(id_usuario, datos_a_actualizar)
     return consultar_perfil_usuario(id_usuario)
+
+
+def habilitar_empleado(id_super_admin: int, email: str) -> dict:
+    """Eleva una cuenta existente a empleado sólo desde el super admin."""
+    email = validar_email(email)
+    super_admin = obtener_usuario_por_id(id_super_admin)
+
+    if not super_admin or super_admin["email"].casefold() != current_app.config["SUPER_ADMIN_EMAIL"]:
+        raise PermissionError("Sólo el administrador principal puede habilitar empleados")
+
+    usuario = buscar_por_email(email)
+    if not usuario:
+        raise ValueError("No existe una cuenta registrada con ese correo.", 404)
+    if usuario["rol"] != "empleado":
+        if actualizar_rol_usuario(usuario["id"], "empleado") != 1:
+            raise ValueError("No se pudo habilitar la cuenta.", 500)
+    return {
+        "id": usuario["id"],
+        "nombre": usuario["nombre"],
+        "email": usuario["email"],
+        "rol": "empleado",
+    }
+
+
+def consultar_empleados(id_super_admin: int) -> list[dict]:
+    _verificar_super_admin(id_super_admin)
+    return listar_empleados()
+
+
+def dar_de_baja_empleado(id_super_admin: int, id_usuario: int) -> None:
+    _verificar_super_admin(id_super_admin)
+    usuario = obtener_usuario_por_id(id_usuario)
+    if not usuario or usuario["rol"] != "empleado":
+        raise ValueError("El empleado no existe.", 404)
+    if actualizar_rol_usuario(id_usuario, "cliente") != 1:
+        raise ValueError("No se pudo dar de baja al empleado.", 500)

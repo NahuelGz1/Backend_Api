@@ -342,6 +342,75 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+  /auth/usuarios/empleados:
+    get:
+      tags:
+        - Usuarios
+      summary: Listar empleados
+      operationId: get__auth_usuarios_empleados
+      description: Devuelve las cuentas con rol empleado, ordenadas por correo electrónico. Requiere administrador principal.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+        - Usuarios
+      summary: Habilitar cuenta existente como empleado
+      operationId: post__auth_usuarios_empleados
+      description: Asigna el rol empleado a una cuenta existente mediante su correo electrónico. Requiere administrador principal.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Correo'
+            example:
+              email: empleado@example.com
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/usuarios/empleados/{id_usuario}:
+    delete:
+      tags:
+        - Usuarios
+      summary: Dar de baja el rol de empleado
+      operationId: delete__auth_usuarios_empleados__id_usuario
+      description: Cambia el rol del empleado a cliente sin eliminar su cuenta. Requiere administrador principal.
+      parameters:
+        - $ref: '#/components/parameters/id_usuario'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /peliculas/cartelera:
     get:
       tags:
@@ -451,6 +520,63 @@ paths:
                   - message
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags:
+        - Películas
+      summary: Editar datos de una película
+      operationId: patch__peliculas__pelicula_id
+      description: >
+        Actualiza solo los campos enviados. No permite cambiar la duración si
+        hay funciones futuras o en curso, ni duplicar título y duración.
+        El póster admite una URL de hasta 255 caracteres o una imagen PNG/JPEG
+        en data URI Base64 de hasta 5 MB.
+      parameters:
+        - $ref: '#/components/parameters/pelicula_id'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                titulo:
+                  type: string
+                  maxLength: 150
+                sinopsis:
+                  type: string
+                  nullable: true
+                poster:
+                  type: string
+                  nullable: true
+                duracion:
+                  type: integer
+                  minimum: 1
+                clasificacion:
+                  type: string
+                  enum: [ATP, '+13', '+16', '+18']
+                genero:
+                  type: string
+                  maxLength: 50
+                activo:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
@@ -840,6 +966,52 @@ paths:
           $ref: '#/components/responses/ServerError'
       description: No permite volver a activar una función cancelada. Para otro horario se debe programar una 
         función nueva.
+  /funciones/{funcion_id}/destacar:
+    put:
+      tags:
+        - Funciones
+      summary: Seleccionar película destacada
+      operationId: put__funciones__funcion_id__destacar
+      description: |
+        Permite a un administrador seleccionar la película destacada
+        para la página de inicio a partir de una función existente.
+        La función debe estar activa, ser futura, no estar cancelada
+        ni eliminada y tener una película y una sala activas.
+        Reemplaza la película destacada anterior.
+      parameters:
+        - $ref: '#/components/parameters/funcion_id'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Película destacada actualizada correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id_pelicula:
+                        type: integer
+                  message:
+                    type: string
+              example:
+                ok: true
+                data:
+                  id_pelicula: 8
+                message: Película destacada actualizada
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /funciones/{funcion_id}/cancelar:
     put:
       tags:
@@ -1211,12 +1383,22 @@ paths:
     post:
       tags:
         - Compras
-      summary: Comprar entradas y servicios
+      summary: Comprar entradas y servicios adicionales
       operationId: post__compras
-      description: Requiere una función vigente, al menos una butaca y autorización Bearer. Cada servicio 
-        agregado debe indicar id_servicio, cantidad y precio. El estacionamiento admite como máximo una plaza 
-        por entrada y está sujeto al cupo restante de la función (hasta 20 plazas por función). No se pueden 
-        comprar entradas para una función cancelada. La compra se confirma en la base antes del intento de 
+      description: |
+        Requiere autenticación mediante token Bearer.
+        Permite comprar entradas con servicios adicionales
+        o realizar una compra exclusivamente de servicios.
+        Para comprar entradas se requiere una función vigente
+        y al menos una butaca disponible.
+        Cada servicio debe indicar id_servicio, cantidad y precio.
+        El estacionamiento admite como máximo una plaza por
+        entrada y está sujeto al cupo de 20 plazas por función.
+        Las compras sin entradas no admiten estacionamiento
+        ni acceso VIP.
+        No se pueden comprar entradas para funciones canceladas.
+        En las compras con entradas, la operación se confirma
+        antes del intento de enviar el correo de comprobante.
         enviar el correo.
       security:
         - BearerAuth: []
@@ -1317,7 +1499,15 @@ paths:
         - Validación QR
       summary: Consultar una compra por su código QR
       operationId: get__compras_qr__codigo_qr
-      description: 'Solo para administradores. Devuelve siempre los datos de la función e incluye valida, estado_validacion (valida, funcion_anticipada o funcion_vencida) y mensaje_validacion según la ventana de ingreso: desde 2 horas antes hasta 2 horas después del inicio de la función.'
+      description: |
+        Requiere autenticación y rol de administrador o empleado.
+        Devuelve los datos de la compra, la función y el estado
+        de las entradas y servicios asociados.
+        Incluye los campos valida, estado_validacion y mensaje_validacion
+        según la ventana de ingreso, desde 2 horas antes hasta
+        2 horas después del inicio de la función.
+        Informa las unidades utilizadas y pendientes por categoría:
+        entradas, acceso VIP, servicios y estacionamiento.
       parameters:
         - $ref: '#/components/parameters/codigo_qr'
       security:
@@ -1341,7 +1531,21 @@ paths:
         - Validación QR
       summary: Validar ingreso o canjear una unidad de servicio
       operationId: post__compras_validar_qr
-      description: 'Categorias: entradas, vip, servicios, estacionamiento. Permite seleccionar id_entrada o id_detalle. Responde 400 si la función está fuera de la ventana de ingreso (desde 2 horas antes hasta 2 horas después de su inicio).'
+      description: |
+        Requiere autenticación y rol de administrador o empleado.
+        Permite validar una entrada o canjear una unidad de servicio.
+        Las categorías admitidas son entradas, vip, servicios
+        y estacionamiento.
+        Permite seleccionar una entrada mediante id_entrada
+        o un detalle de servicio mediante id_detalle.
+        Responde con código 400 cuando la función está fuera
+        de la ventana de ingreso permitida, desde 2 horas antes
+        hasta 2 horas después de su inicio.
+        Devuelve el estado actualizado de la compra, la categoría
+        validada y la cantidad de unidades canjeadas.
+        Al completar el canje de las entradas de una compra,
+        se invoca el envío de un correo electrónico con un enlace
+        firmado para puntuar la película.
       security:
         - BearerAuth: []
       requestBody:
@@ -1363,6 +1567,180 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+  /compras/rese%C3%B1a:
+    post:
+      tags:
+        - Compras
+      summary: Registrar o actualizar una reseña
+      operationId: post__compras_resena
+      description: |
+        Permite a un usuario autenticado registrar o actualizar
+        su puntuación de una película.
+        La puntuación debe ser un número entero entre 1 y 5.
+        El usuario debe haber validado su entrada para esa película.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id_pelicula
+                - puntuacion
+              properties:
+                id_pelicula:
+                  type: integer
+                  example: 8
+                puntuacion:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+      responses:
+        '200':
+          description: Reseña registrada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exito'
+              example:
+                ok: true
+                data:
+                  id_pelicula: 8
+                  puntuacion_usuario: 5
+                  promedio: 4
+                  total_votos: 10
+                message: Reseña añadida exitosamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /compras/{compra_id}/servicios:
+    post:
+      tags:
+        - Compras
+      summary: Agregar servicios a una compra existente
+      operationId: post__compras__compra_id__servicios
+      description: |
+        Permite agregar servicios adicionales a una compra propia
+        que tenga entradas activas para una función vigente.
+        Conserva el identificador de compra y el código QR original.
+        Comprueba la disponibilidad y el precio actual de los servicios.
+        La cantidad total de estacionamientos y accesos VIP no puede
+        superar la cantidad de entradas activas.
+        El estacionamiento también está sujeto al cupo de la función.
+      parameters:
+        - $ref: '#/components/parameters/compra_id'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - servicios
+              properties:
+                servicios:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/CompraServicio'
+            example:
+              servicios:
+                - id_servicio: 4
+                  cantidad: 1
+                  precio: 5200.0
+      responses:
+        '201':
+          description: Servicios agregados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exito'
+              example:
+                ok: true
+                data:
+                  id_compra: 8
+                  mensaje: Servicios agregados exitosamente a tu entrada
+                  codigo_qr_texto: CODIGO_QR_DE_LA_COMPRA
+                  qr_imagen_base64: <BASE64>
+                  entradas: []
+                message: Servicios agregados exitosamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /compras/resena/desde-mail:
+    post:
+      tags:
+        - Compras
+      summary: Registrar una reseña mediante correo electrónico
+      operationId: post__compras_resena_desde_mail
+      description: |
+        Permite registrar o actualizar la puntuación de una película
+        mediante un token firmado recibido por correo electrónico.
+        El token tiene una vigencia de 30 días e identifica al usuario
+        y a la película correspondiente.
+        No requiere autenticación JWT.
+        La puntuación debe estar comprendida entre 1 y 5
+        y el usuario debe haber validado su entrada.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - puntuacion
+              properties:
+                token:
+                  type: string
+                  description: Token firmado incluido en el enlace del correo.
+                  example: TOKEN_FIRMADO_DE_RESENA
+                puntuacion:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+      responses:
+        '200':
+          description: Reseña registrada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exito'
+              example:
+                ok: true
+                data:
+                  id_pelicula: 8
+                  puntuacion_usuario: 5
+                  promedio: 4
+                  total_votos: 10
+                message: Reseña añadida exitosamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /dashboard/ocupacion:
     get:
       tags:
@@ -1382,6 +1760,44 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /dashboard/ocupacion/pdf:
+    get:
+      tags:
+        - Dashboard
+      summary: Exportar reporte administrativo de ventas en PDF
+      operationId: get__dashboard_ocupacion_pdf
+      description: |
+        Genera y descarga un reporte de ventas en formato PDF.
+        Requiere autenticación y permisos de administrador.
+        Permite filtrar los resultados por complejo y período mensual.
+        El período debe tener formato AAAA-MM.
+      parameters:
+        - $ref: '#/components/parameters/periodo'
+        - $ref: '#/components/parameters/complejo'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Reporte PDF generado correctamente
+          headers:
+            Content-Disposition:
+              description: Nombre del archivo descargado
+              schema:
+                type: string
+                example: 'attachment; filename=reporte-ventas-cine-paradiso.pdf'
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
@@ -1412,6 +1828,7 @@ components:
           enum:
             - cliente
             - administrador
+            - empleado
       required:
         - id
         - nombre
@@ -1558,6 +1975,19 @@ components:
           type: boolean
         eliminada:
           type: boolean
+        destacada:
+          type: boolean
+          description: Indica si la película está destacada en el inicio.
+          example: false
+        promedio_estrellas:
+          type: number
+          description: Promedio de las puntuaciones recibidas.
+          example: 4.5
+        total_votos:
+          type: integer
+          minimum: 0
+          description: Cantidad de puntuaciones recibidas.
+          example: 10
         funciones:
           type: array
           items:
@@ -1633,6 +2063,10 @@ components:
         local:
           type: string
           example: Paradiso Centro
+        activo:
+          type: boolean
+          description: Indica si la sala está habilitada.
+          example: true
       required:
         - id
         - nombre
@@ -1665,6 +2099,11 @@ components:
           minimum: 1
         local:
           type: string
+        activo:
+          type: boolean
+          description: |
+            true habilita la sala y false la deshabilita
+            por mantenimiento.
       description: Actualización parcial de la sala.
     Funcion:
       type: object
@@ -1686,6 +2125,10 @@ components:
         pelicula_eliminada:
           type: boolean
           example: false
+        sala_activa:
+          type: boolean
+          description: Indica si la sala de la función está habilitada.
+          example: true
         cancelada:
           type: boolean
           description: Indica que el cine canceló la función
@@ -1728,6 +2171,9 @@ components:
               type: boolean
             eliminada:
               type: boolean
+            destacada:
+              type: boolean
+              example: false
         sala:
           $ref: '#/components/schemas/Sala'
         butacas_ocupadas:
@@ -1910,6 +2356,7 @@ components:
       properties:
         id_funcion:
           type: integer
+          minimum: 1
           example: 5
         butacas:
           type: array
@@ -1924,10 +2371,30 @@ components:
         email_contacto:
           type: string
           format: email
-          description: 'Opcional: correo de contacto para el comprobante'
-      required:
-        - id_funcion
-        - butacas
+          description: Correo opcional de contacto para el comprobante.
+      oneOf:
+        - required:
+            - id_funcion
+            - butacas
+          properties:
+            butacas:
+              minItems: 1
+        - required:
+            - servicios
+          properties:
+            servicios:
+              minItems: 1
+          not:
+            anyOf:
+              - required:
+                  - id_funcion
+              - required:
+                  - butacas
+      description: |
+        Permite comprar entradas con servicios opcionales
+        o comprar exclusivamente servicios sin indicar
+        id_funcion ni butacas.
+        Estacionamiento y acceso VIP requieren entradas asociadas.
     CompraResultado:
       type: object
       properties:
